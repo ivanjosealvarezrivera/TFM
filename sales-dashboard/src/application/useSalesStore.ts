@@ -81,7 +81,10 @@ export const useSalesStore = defineStore('sales', () => {
     
     const sortedKeys = Object.keys(data).sort()
     return {
-      labels: sortedKeys,
+      labels: sortedKeys.map(k => {
+        const [y, m, d] = k.split('-')
+        return `${d}/${m}/${y}`
+      }),
       values: sortedKeys.map(k => data[k] ?? 0)
     }
   })

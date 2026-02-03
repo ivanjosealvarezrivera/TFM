@@ -17,7 +17,7 @@
           >
         </div>
         <div v-if="salesStore.rawSales.length > 0" class="flex gap-4">
-          <DatePicker v-model="dates" selectionMode="range" :manualInput="false" placeholder="Rango de Fechas" />
+          <DatePicker v-model="dates" selectionMode="range" :manualInput="false" placeholder="Rango de Fechas" dateFormat="dd/mm/yy" />
           <Button label="Limpiar Filtros" icon="pi pi-filter-slash" outlined @click="resetFilters" />
         </div>
       </div>
