@@ -38,7 +38,20 @@
           :subtitle="salesStore.volumeVariation !== 0 ? `${salesStore.volumeVariation > 0 ? '+' : ''}${salesStore.volumeVariation.toFixed(1)}% vs mes anterior` : ''"
         />
         <KPICard title="Ventas Filtradas" :value="salesStore.filteredSales.length" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
-        <!-- Más KPIs según lógica MoM posterior -->
+        <KPICard 
+          title="Día Top Ventas" 
+          :value="salesStore.maxSalesDay ? salesStore.maxSalesDay.value.toLocaleString() + ' m³' : '---'" 
+          icon="pi pi-calendar-plus" 
+          iconClass="text-pale-green"
+          :subtitle="salesStore.maxSalesDay ? salesStore.maxSalesDay.date : ''"
+        />
+        <KPICard 
+          title="Autoconsumo" 
+          :value="salesStore.selfConsumptionVolume.toLocaleString() + ' m³'" 
+          icon="pi pi-sync" 
+          iconClass="text-primary-green"
+          subtitle="Gral. Hormigones S.A."
+        />
       </div>
 
       <Tabs value="0">
@@ -50,15 +63,38 @@
         </TabList>
         <TabPanels>
           <TabPanel value="0">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              <!-- 1. Ventas por Meses -->
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Planta</h3>
-                <BaseChartJS :config="plantaChartConfig" />
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Meses</h3>
+                <div class="h-96">
+                  <BaseChartJS :config="monthChartConfig" />
+                </div>
               </div>
+              <!-- 2. Ventas por Días -->
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas en el Tiempo</h3>
-                <BaseChartJS :config="timeChartConfig" />
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Días</h3>
+                <div class="h-96">
+                  <BaseChartJS :config="dayChartConfig" />
+                </div>
               </div>
+              <!-- 3. Ventas por Comunidad Autónoma -->
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Comunidad Autónoma</h3>
+                <div class="h-80">
+                  <BaseChartJS :config="communityChartConfig" />
+                </div>
+              </div>
+              <!-- 4. Ventas por Planta -->
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Planta</h3>
+                <div class="h-96">
+                  <BaseChartJS :config="plantaChartConfig" />
+                </div>
+              </div>
+            </div>
+            <div class="mt-8">
+              <PivotSalesTable :data="salesStore.pivotData" />
             </div>
           </TabPanel>
           <TabPanel value="1">
@@ -85,6 +121,7 @@ import { ExcelService } from '../../infrastructure/services/ExcelService'
 import type { ChartConfiguration } from 'chart.js'
 import KPICard from '../components/KPICard.vue'
 import BaseChartJS from '../components/BaseChartJS.vue'
+import PivotSalesTable from '../components/PivotSalesTable.vue'
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
@@ -132,11 +169,18 @@ const resetFilters = () => {
   salesStore.setFilters({ startDate: null, endDate: null })
 }
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 watch(dates, (newDates) => {
   if (newDates && newDates.length === 2 && newDates[0] && newDates[1]) {
     salesStore.setFilters({
-      startDate: newDates[0].toISOString().split('T')[0],
-      endDate: newDates[1].toISOString().split('T')[0]
+      startDate: formatLocalDate(newDates[0]),
+      endDate: formatLocalDate(newDates[1])
     })
   } else if (!newDates) {
     salesStore.setFilters({ startDate: null, endDate: null })
@@ -149,11 +193,22 @@ const plantaChartConfig = computed<ChartConfiguration>(() => {
         type: 'bar',
         data: {
             labels: Object.keys(salesStore.volumeByPlanta),
-            datasets: [{
-                label: 'm³',
-                data: Object.values(salesStore.volumeByPlanta),
-                backgroundColor: '#4B7F61'
-            }]
+            datasets: [
+                {
+                    label: 'm³',
+                    data: Object.values(salesStore.volumeByPlanta),
+                    backgroundColor: '#4B7F61'
+                },
+                {
+                    label: `Media (${salesStore.averageVolumeByPlanta.toFixed(1)} m³)`,
+                    data: new Array(Object.keys(salesStore.volumeByPlanta).length).fill(salesStore.averageVolumeByPlanta),
+                    type: 'line',
+                    borderColor: '#D42E12',
+                    borderDash: [5, 5],
+                    pointStyle: false,
+                    fill: false
+                }
+            ]
         },
         options: { 
           responsive: true, 
@@ -162,21 +217,86 @@ const plantaChartConfig = computed<ChartConfiguration>(() => {
     }
 })
 
-const timeChartConfig = computed<ChartConfiguration>(() => {
+const dayChartConfig = computed<ChartConfiguration>(() => {
     return {
         type: 'line',
         data: {
-            labels: salesStore.salesByDate.labels,
-            datasets: [{
-                label: 'Ventas Diarias',
-                data: salesStore.salesByDate.values,
-                borderColor: '#004730',
-                tension: 0.1
-            }]
+            labels: salesStore.salesByDay.labels,
+            datasets: [
+                {
+                    label: 'Ventas Diarias',
+                    data: salesStore.salesByDay.values,
+                    borderColor: '#004730',
+                    tension: 0.1
+                },
+                {
+                    label: `Media Diaria (${salesStore.averageSalesByDay.toFixed(1)} m³)`,
+                    data: new Array(salesStore.salesByDay.labels.length).fill(salesStore.averageSalesByDay),
+                    borderColor: '#D42E12',
+                    borderDash: [5, 5],
+                    pointStyle: false,
+                    fill: false
+                }
+            ]
         },
         options: { 
           responsive: true, 
           maintainAspectRatio: false 
+        }
+    }
+})
+
+const monthChartConfig = computed<ChartConfiguration>(() => {
+    return {
+        type: 'bar',
+        data: {
+            labels: salesStore.salesByMonth.labels,
+            datasets: [
+                {
+                    label: 'Volumen Mensual (m³)',
+                    data: salesStore.salesByMonth.values,
+                    backgroundColor: '#1A664B'
+                },
+                {
+                    label: `Media Mensual (${salesStore.averageSalesByMonth.toFixed(1)} m³)`,
+                    data: new Array(salesStore.salesByMonth.labels.length).fill(salesStore.averageSalesByMonth),
+                    type: 'line',
+                    borderColor: '#D42E12',
+                    borderDash: [5, 5],
+                    pointStyle: false,
+                    fill: false
+                }
+            ]
+        },
+        options: { 
+          responsive: true, 
+          maintainAspectRatio: false 
+        }
+    }
+})
+
+const communityChartConfig = computed<ChartConfiguration>(() => {
+    return {
+        type: 'polarArea',
+        data: {
+            labels: Object.keys(salesStore.volumeByCommunity),
+            datasets: [{
+                data: Object.values(salesStore.volumeByCommunity),
+                backgroundColor: [
+                  '#004730', 
+                  '#1A664B', 
+                  '#4B7F61', 
+                  '#8CC2A2', 
+                  '#B7D4C0'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            }
         }
     }
 })
