@@ -1,0 +1,2821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Interactivo de Análisis de Ventas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js@3.0.1/dist/plotly.min.js"></script>
+    <style>
+        :root {
+            --primary-green: #004730;
+            --darker-green: #1A664B;
+            --medium-dark-green: #4B7F61;
+            --pale-green: #8CC2A2;
+            --lighter-pale-green: #B7D4C0;
+            --light-greenish-bg: #F0F4F0;
+            --light-greenish-even-row: #E6F0E6;
+            --primary-red: #D42E12;
+            --dark-text: #333333;
+            --light-text: #FFFFFF;
+            --muted-text: #6c757d;
+            --neutral-gray: #A0A0A0;
+            --brighter-green: #008C5C;
+            --darkest-green-border: #002D20;
+
+            /* RGB versions for rgba() calculations in CSS */
+            --primary-green-rgb: 0, 71, 48;
+        }
+
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: var(--light-greenish-bg);
+            color: var(--dark-text);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px; 
+            margin-left: auto;
+            margin-right: auto;
+            height: 400px;
+            max-height: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 420px;
+            }
+        }
+        canvas {
+             max-width: 100%;
+        }
+        #salesByGrupoPlotly {
+            width: 100%;
+            height: 100%;
+        }
+        .truck-plant-table, .pivot-table, .client-detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75em;
+            table-layout: fixed;
+        }
+        .truck-plant-table th, .truck-plant-table td,
+        .pivot-table th, .pivot-table td,
+        .client-detail-table th, .client-detail-table td {
+            border: 1px solid var(--medium-dark-green);
+            padding: 6px 8px;
+            text-align: center;
+            vertical-align: middle;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .truck-plant-table th, .pivot-table th, .client-detail-table th {
+            background-color: var(--pale-green);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .client-detail-table th {
+            cursor: pointer;
+        }
+        .truck-plant-table th:first-child, .pivot-table th:first-child, .client-detail-table th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 11;
+            background-color: var(--pale-green);
+        }
+        .truck-plant-table td:first-child, .pivot-table td:first-child, .client-detail-table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 9;
+            background-color: var(--light-greenish-bg);
+            font-weight: 500;
+            text-align: left; /* Keep left align for more space */
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            /* Added width to first column to accommodate transportista name */
+            width: 150px; /* Adjust as needed */
+        }
+        .truck-plant-table td:first-child:hover, .pivot-table td:first-child:hover, .client-detail-table td:first-child:hover {
+            background-color: var(--light-greenish-even-row);
+        }
+        .truck-plant-table tbody tr:nth-child(even), .pivot-table tbody tr:nth-child(even), .client-detail-table tbody tr:nth-child(even) {
+            background-color: var(--light-greenish-even-row);
+        }
+        .truck-plant-table tbody tr:nth-child(even) td:first-child, .pivot-table tbody tr:nth-child(even) td:first-child, .client-detail-table tbody tr:nth-child(even) td:first-child {
+            background-color: var(--light-greenish-even-row);
+        }
+        .table-data-item-volume {
+            display: block;
+            line-height: 1.2;
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+        .table-data-item-trips {
+            display: block;
+            line-height: 1.2;
+            color: var(--medium-dark-green);
+            font-size: 0.9em;
+        }
+        .highlight-max-volume {
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(var(--primary-green-rgb), 0.4);
+            border: 2px solid var(--primary-green) !important;
+        }
+        .highlight-max-volume .table-data-item-volume {
+            color: var(--primary-red) !important;
+        }
+        .total-column {
+            background-color: var(--lighter-pale-green);
+            font-weight: bold;
+            color: var(--primary-green);
+        }
+        .table-scroll-container {
+            overflow: auto;
+            border: 1px solid var(--medium-dark-green);
+            border-radius: 0.375rem;
+        }
+        .kpi-card-body {
+            padding: 1rem;
+        }
+        .kpi-icon-display {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+        .kpi-value-text {
+            color: var(--primary-green);
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+        .kpi-title-text {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--muted-text);
+            margin-bottom: 0;
+        }
+        .kpi-icon-color-primary { color: var(--brighter-green); }
+        .kpi-icon-growth-up { color: var(--brighter-green); }
+        .kpi-icon-growth-down { color: var(--primary-red); }
+        .kpi-icon-growth-neutral { color: var(--neutral-gray); }
+        .kpi-value-small {
+            font-size: 1.5rem;
+            margin-top: 0.25rem;
+        }
+        .filter-button {
+            background-color: var(--primary-green);
+            color: var(--light-text);
+        }
+        .filter-button:hover {
+            background-color: var(--darker-green);
+        }
+        .reset-button {
+            background-color: var(--pale-green);
+            color: var(--dark-text);
+        }
+        .reset-button:hover {
+            background-color: var(--lighter-pale-green);
+        }
+        .notification-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--primary-green);
+            color: var(--light-text);
+            padding: 10px 20px;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            max-width: 80%;
+            text-align: center;
+        }
+        .notification-bar.show {
+            opacity: 1;
+        }
+        .filtered-chart-card {
+            background-color: var(--light-greenish-even-row);
+            border: 2px solid var(--primary-green);
+            box-shadow: 0 0 10px rgba(var(--primary-green-rgb), 0.4);
+            transition: all 0.3s ease-in-out;
+        }
+        #loadingIndicator {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            pointer-events: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(var(--primary-green-rgb), 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1050;
+        }
+        #loadingIndicator.is-visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+        #activeFiltersSection {
+            transition: all 0.3s ease-in-out;
+        }
+        .filter-badge {
+            background-color: var(--primary-green) !important;
+            color: var(--light-text) !important;
+            padding-right: 0.5rem !important;
+        }
+        .filter-badge .btn-close {
+            font-size: 0.75em;
+            margin-left: 0.5rem;
+            filter: brightness(0) invert(1);
+        }
+        /* Custom styles for Bootstrap tabs */
+        .nav-tabs .nav-link {
+            color: var(--medium-dark-green);
+            font-weight: bold;
+        }
+        .nav-tabs .nav-link.active {
+			background-color: var(--primary-green);
+            color: var(--light-text);
+            border-color: var(--medium-dark-green) var(--medium-dark-green) var(--light-greenish-bg);
+        }
+        .tab-content {
+            border: 1px solid var(--medium-dark-green);
+            border-top: 0;
+            padding: 1.5rem;
+            background-color: #fff;
+            border-radius: 0 0 0.375rem 0.375rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="appContainer" class="container-fluid">
+        
+        <header class="bg-white p-4 rounded-3 shadow mb-4">
+            <h1 class="fs-2 fw-bold text-center text-dark">Panel Interactivo de Análisis de Ventas de Hormigón</h1>
+            <p class="text-center text-secondary mt-2">Cargue un archivo XLSX para visualizar y analizar los datos de ventas de su empresa. Interactúe con los gráficos para filtrar la información.</p>
+        </header>
+
+        <section id="uploadAndFiltersSection" class="bg-white p-4 rounded-3 shadow mb-4">
+            <h2 class="fs-4 fw-semibold text-secondary mb-3">1. Cargar Datos y Filtrar</h2>
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <label class="form-label text-dark fw-bold" for="xlsxFile">
+                        Seleccionar Archivo XLSX:
+                    </label>
+                    <input type="file" id="xlsxFile" accept=".xlsx" class="form-control">
+                </div>
+                <div id="dateFilterControls" class="col-md-9 d-none">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label text-dark fw-bold" for="startDate">
+                                Fecha Inicio:
+                            </label>
+                            <input type="date" id="startDate" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-dark fw-bold" for="endDate">
+                                Fecha Fin:
+                            </label>
+                            <input type="date" id="endDate" class="form-control">
+                        </div>
+                        <div class="col-md-4 d-flex flex-column flex-sm-row gap-2">
+                            <button id="applyFilterBtn" class="filter-button btn fw-bold py-2 px-3 rounded-3 flex-grow-1">
+                                Aplicar Filtro
+                            </button>
+                            <button id="resetFilterBtn" class="reset-button btn fw-bold py-2 px-3 rounded-3 flex-grow-1">
+                                Restablecer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="advancedFilterControls" class="row g-3 mt-3 d-none">
+                <div class="col-md col-sm-6">
+                    <label for="comunidadFilter" class="form-label text-dark fw-bold">Comunidad</label>
+                    <select id="comunidadFilter" class="form-select">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="col-md col-sm-6">
+                    <label for="plantaFilter" class="form-label text-dark fw-bold">Planta</label>
+                    <select id="plantaFilter" class="form-select">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="col-md col-sm-6">
+                    <label for="nomenclaturaFilter" class="form-label text-dark fw-bold">Nomenclatura</label>
+                    <select id="nomenclaturaFilter" class="form-select">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+                <div class="col-md col-sm-6">
+                    <label for="transportistaFilter" class="form-label text-dark fw-bold">Transportista</label>
+                    <select id="transportistaFilter" class="form-select">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="col-md col-sm-6">
+                    <label for="camionFilter" class="form-label text-dark fw-bold">Camión</label>
+                    <select id="camionFilter" class="form-select">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section id="activeFiltersSection" class="d-none mb-4">
+            <div class="card p-3 shadow-sm">
+                <div class="d-flex flex-wrap align-items-center gap-2" id="activeFiltersContainer">
+				</div>
+            </div>
+        </section>
+
+
+        <div id="dashboardContent" class="d-none">
+            
+            <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="ventas-tab" data-bs-toggle="tab" data-bs-target="#ventas-tab-pane" type="button" role="tab" aria-controls="ventas-tab-pane" aria-selected="true">Análisis de Ventas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="formulas-tab" data-bs-toggle="tab" data-bs-target="#formulas-tab-pane" type="button" role="tab" aria-controls="formulas-tab-pane" aria-selected="false">Análisis de Fórmulas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="transporte-tab" data-bs-toggle="tab" data-bs-target="#transporte-tab-pane" type="button" role="tab" aria-controls="transporte-tab-pane" aria-selected="false">Análisis de Transporte</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="clientes-tab" data-bs-toggle="tab" data-bs-target="#clientes-tab-pane" type="button" role="tab" aria-controls="clientes-tab-pane" aria-selected="false">Análisis de Clientes</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tiempos-tab" data-bs-toggle="tab" data-bs-target="#tiempos-tab-pane" type="button" role="tab" aria-controls="tiempos-tab-pane" aria-selected="false">Análisis de Tiempos</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="dashboardTabsContent">
+                
+                <div class="tab-pane fade show active" id="ventas-tab-pane" role="tabpanel" aria-labelledby="ventas-tab" tabindex="0">
+                    <section id="kpiSection" class="mb-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Resumen de Ventas (KPIs)</h2>
+                        <p class="text-secondary mb-3">Estos son los indicadores clave de ventas basados en los datos cargados y los filtros aplicados.</p>
+                         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconTotalQuantity" class="bi bi-bar-chart"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="totalQuantityKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Volumen Total Facturado</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconMaxSalesDay" class="bi bi-calendar-date"></i>
+                                        </div>
+                                        <h2 class="kpi-value-text" id="maxSalesDayDate">-</h2>
+                                        <p class="card-text kpi-title-text">Día de Mayor Venta</p>
+                                        <h2 class="card-title kpi-value-text kpi-value-small" id="maxSalesDayValue">-</h2>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display">
+                                            <i id="kpiIconAvgDailyVolume" class="bi bi-dash-lg"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="avgDailyVolumeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Variación promedia diaria ventas (MoM)</p>
+                                        <p class="card-text small text-muted mt-2" id="avgDailyVolumeValues"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display">
+                                            <i id="kpiIconMomGrowth" class="bi bi-dash-lg"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="momGrowthKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Variación ventas (MoM)</p>
+                                        <p class="card-text small text-muted mt-2" id="momGrowthValues"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconAutoconsumoGDH" class="bi bi-house"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="autoconsumoGDHKPI" style="color: var(--primary-red);">-</h2>
+                                        <p class="card-text kpi-title-text">Volumen Autoconsumo (GDH)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconNegativeVolumeAlbaranes" class="bi bi-arrow-down-square-fill"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="negativeVolumeAlbaranesKPI" style="color: var(--primary-red);">-</h2>
+                                        <p class="card-text kpi-title-text">Albaranes Volumen &lt; 0</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+        
+                    <section id="chartsSectionVentas" class="mb-4">
+						<h2 class="fs-4 fw-semibold text-secondary mb-3">Visualizaciones Detalladas</h2>
+						<p class="text-secondary mb-3">Explore los datos de ventas a través de diferentes dimensiones. Haga clic en elementos de algunos gráficos (como plantas o nomenclaturas) para aplicar filtros cruzados al resto del panel.</p>																																										
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen Facturado Mensual por Planta</h3>
+                                    <p class="text-muted small mb-2">Comparativa mensual del volumen facturado, desglosado por planta.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesMonthOverMonthChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100"> 
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen Facturado a lo Largo del Tiempo</h3>
+                                    <p class="text-muted small mb-2">Muestra la tendencia del volumen total facturado.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesOverTimeChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div id="fabricaChartCard" class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Nombre de Planta</h3>
+                                    <p class="text-muted small mb-2">Compare el volumen facturado por cada planta. Haga clic en una barra para filtrar.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesByFabricaChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div id="fabricaPrefixChartCard" class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Comunidad Autónoma</h3>
+                                    <p class="text-muted small mb-2">Ventas por comunidad (prefijo de planta). Haga clic en una sección para filtrar.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesByFabricaPrefixChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </section>
+                    
+                    <section id="pivotTableSection" class="bg-white p-4 rounded-3 shadow mt-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Tabla Detallada de Ventas</h2>
+                        <p class="text-secondary mb-3">Explore los datos de volumen facturado agrupados por fecha y nombre de planta.</p>
+                        <div id="pivotTableContainer" class="table-scroll-container">
+                            <p class="text-center text-muted py-4">No hay datos disponibles para la tabla dinámica.</p>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="tab-pane fade" id="formulas-tab-pane" role="tabpanel" aria-labelledby="formulas-tab" tabindex="0">
+                    <section id="kpiFormulasSection" class="mb-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Resumen de Fórmulas (KPIs)</h2>
+						<p class="text-secondary mb-3">Indicadores clave sobre las fórmulas con los filtros aplicados.</p>
+                        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconUniqueGroups" class="bi bi-tags"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="uniqueGroupsKPI">-</h2> 
+                                        <p class="card-text kpi-title-text">Nomenclaturas Únicas</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i class="bi bi-calculator"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="avgCementoKPI">-</h2> 
+                                        <p class="card-text kpi-title-text">Contenido Medio Cemento</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="chartsSectionFormulas" class="mb-4">
+						<h2 class="fs-4 fw-semibold text-secondary mb-3">Visualizaciones Detalladas</h2>
+                        <div class="row g-3">
+                            
+                            <div class="col-lg-6">
+                                <div id="grupoChartCard" class="card p-3 rounded-3 shadow h-100"> 
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Nomenclatura y Resistencia</h3>
+                                    <p class="text-muted small mb-2">Distribución del volumen por tipo de producto. Haga clic para filtrar.</p>
+                                    <div class="chart-container">
+                                        <div id="salesByGrupoPlotly"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Contenido Cemento Real por Nomenclatura</h3>
+                                    <p class="text-muted small mb-2">Distribución del contenido de cemento real para cada nomenclatura.</p>
+                                    <div class="chart-container">
+                                        <div id="cementoFormulaChart"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Consistencia de Fórmula</h3>
+                                    <p class="text-muted small mb-2">Distribución del volumen facturado por "Consistencia de Fórmula".</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesByCalidadChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Tamaño de Fórmula</h3>
+                                    <p class="text-muted small mb-2">Distribución del volumen facturado por "Tamaño de Fórmula".</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesByArticuloChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen por Exposición</h3>
+                                    <p class="text-muted small mb-2">Distribución del volumen facturado por tipo de exposición.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesByEnvaseChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Distribución Volumen por nº de albaranes</h3>
+                                    <p class="text-muted small mb-2">Cantidad de albaranes que caen en diferentes rangos de volumen.</p>
+                                    <div class="chart-container">
+                                        <canvas id="salesDistributionByQuantityChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="tab-pane fade" id="transporte-tab-pane" role="tabpanel" aria-labelledby="transporte-tab" tabindex="0">
+                    <section id="chartsSectionTransporte" class="mb-4">
+					<h2 class="fs-4 fw-semibold text-secondary mb-3">Visualizaciones Detalladas</h2>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen Facturado por Camión</h3>
+                                    <p class="text-muted small mb-2">Compara el volumen total facturado por cada camión.</p>
+                                    <div class="chart-container">
+                                        <canvas id="volumeByTruckChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen Facturado por Transportista</h3>
+                                    <p class="text-muted small mb-2">Compara el volumen total facturado por cada transportista.</p>
+                                    <div class="chart-container">
+                                        <canvas id="volumeByTransportistaChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="transportistasTableSection" class="bg-white p-4 rounded-3 shadow mt-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Tabla Detallada de Transportistas</h2>
+                        <p class="text-secondary mb-3">Explore los datos de volumen y viajes por transportista y planta. Haga clic en un transportista para filtrar.</p>
+                        <div id="transportistasTableContainer" class="table-scroll-container">
+                        </div>
+                    </section>
+
+                    <section id="trucksAndPlantsTableSection" class="bg-white p-4 rounded-3 shadow mt-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Tabla Detallada de Camiones</h2>
+                        <p class="text-secondary mb-3">Explore los datos de volumen y viajes por camión y planta. Haga clic en una matrícula para filtrar.</p>
+                        <div id="tripsAndVolumeTableContainer" class="table-scroll-container">
+                        </div>
+                    </section>
+                </div>
+
+                <div class="tab-pane fade" id="clientes-tab-pane" role="tabpanel" aria-labelledby="clientes-tab" tabindex="0">
+                    <section id="kpiClientSection" class="mb-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Resumen de Clientes (KPIs)</h2>
+                        <p class="text-secondary mb-3">Indicadores clave sobre el comportamiento de los clientes con los filtros aplicados.</p>
+                         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary">
+                                            <i id="kpiIconUniqueClients" class="bi bi-people"></i>
+                                        </div>
+                                        <h2 class="card-title kpi-value-text" id="uniqueClientsKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Clientes Únicos</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-person-plus"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="newClientsKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Clientes Nuevos</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-person-check"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="returningClientsKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Clientes Recurrentes</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-graph-up-arrow"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="newClientsVolumeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Volumen Clientes Nuevos</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-bootstrap-reboot"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="returningClientsVolumeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Volumen Clientes Recurrentes</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="chartsSectionClientes" class="mb-4">
+						<h2 class="fs-4 fw-semibold text-secondary mb-3">Visualizaciones Detalladas</h2>
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Proporción de Clientes (Nuevos vs. Recurrentes)</h3>
+                                    <p class="text-muted small mb-2">Comparativa en número de clientes.</p>
+                                    <div class="chart-container">
+                                        <canvas id="newVsReturningPieChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Volumen de Venta (Nuevos vs. Recurrentes)</h3>
+                                    <p class="text-muted small mb-2">Volumen total facturado a cada tipo de cliente.</p>
+                                    <div class="chart-container">
+                                        <canvas id="newVsReturningBarChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-12">
+                                <div class="card p-3 rounded-3 shadow h-100">
+                                    <h3 class="fs-5 fw-semibold text-secondary mb-1">Matriz de Clientes (Frecuencia vs. Valor)</h3>
+                                    <p class="text-muted small mb-2">Cada burbuja es un cliente. El eje X es el nº de compras, el eje Y el volumen total y el tamaño de la burbuja es el volumen medio por compra.</p>
+                                    <div class="chart-container" style="height: 500px;">
+                                        <canvas id="clientMatrixChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="clientDetailTableSection" class="bg-white p-4 rounded-3 shadow mt-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Tabla Detallada de Clientes</h2>
+                        <p class="text-secondary mb-3">Explore los datos detallados de cada cliente en el período seleccionado. Haga clic en las cabeceras para ordenar.</p>
+                        <div id="clientDetailTableContainer" class="table-scroll-container">
+                            <p class="text-center text-muted py-4">No hay datos de clientes para mostrar.</p>
+                        </div>
+                    </section> <!-- Cierre de section, el div del pane se cierra más abajo -->
+                </div>
+
+                <div class="tab-pane fade" id="tiempos-tab-pane" role="tabpanel" aria-labelledby="tiempos-tab" tabindex="0">
+                    <section id="kpiTimesSection" class="mb-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Resumen de Tiempos (KPIs)</h2>
+                        <p class="text-secondary mb-3">Indicadores clave sobre los tiempos de transporte y descarga.</p>
+                         <!-- MODIFICADO: Añadido row-cols-lg-4 para 4 KPIs en línea en pantallas grandes -->
+                         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3">
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-hourglass-top"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="minTimeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Tiempo Mínimo a Obra (min)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-hourglass-bottom"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="maxTimeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Tiempo Máximo a Obra (min)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- NUEVO KPI 1 -->
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-box-arrow-down"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="minDischargeTimeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Tiempo Mínimo Descarga (min)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- NUEVO KPI 2 -->
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-hourglass-split"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="maxDischargeTimeKPI">-</h2>
+                                        <p class="card-text kpi-title-text">Tiempo Máximo Descarga (min)</p>
+                                    </div>
+                                </div>
+                            </div>
+                             <!-- NUEVO KPI 3 -->
+                            <div class="col">
+                                <div class="card h-100 text-center shadow">
+                                    <div class="card-body kpi-card-body">
+                                        <div class="kpi-icon-display kpi-icon-color-primary"><i class="bi bi-clock-history" style="color: var(--primary-red);"></i></div>
+                                        <h2 class="card-title kpi-value-text" id="lateDischargeCountKPI" style="color: var(--primary-red);">-</h2>
+                                        <p class="card-text kpi-title-text">Nº Descargas Tardías</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section id="timesTableSection" class="bg-white p-4 rounded-3 shadow mt-4">
+                        <h2 class="fs-4 fw-semibold text-secondary mb-3">Tabla de Tiempos Medios por Planta</h2>
+                        <p class="text-secondary mb-3">Tiempos medios en minutos (viaje a obra y descarga) y nº de descargas tardías.</p>
+                        <div id="timesTableContainer" class="table-scroll-container">
+                            <p class="text-center text-muted py-4">No hay datos de tiempos para mostrar.</p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingIndicator">
+        <div class="bg-white p-4 rounded-3 shadow-lg d-flex flex-column align-items-center">
+            <div class="spinner-border mb-3" role="status" style="width: 3rem; height: 3rem; color: var(--primary-green) !important;">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="text-dark fs-5 fw-semibold">Cargando datos...</p>
+            <p class="text-secondary fs-6 mt-2">Esto puede tardar unos segundos.</p>
+        </div>
+    </div>
+
+    <div id="notificationBar" class="notification-bar">
+        <span id="notificationMessage"></span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Object to hold color variables for easy use in JS
+        const COLORS = {
+            primaryGreen: '#004730',
+            darkerGreen: '#1A664B',
+            mediumDarkGreen: '#4B7F61',
+            paleGreen: '#8CC2A2',
+            lighterPaleGreen: '#B7D4C0',
+            lightGreenishBg: '#F0F4F0',
+            lightGreenishEvenRow: '#E6F0E6',
+            primaryRed: '#D42E12',
+            darkText: '#333333',
+            lightText: '#FFFFFF',
+            mutedText: '#6c757d',
+            neutralGray: '#A0A0A0',
+            brighterGreen: '#008C5C',
+            darkestGreenBorder: '#002D20'
+        };
+
+        // Global variables
+        let salesData = [];
+        let charts = {};
+        let originalSalesData = [];
+        let clientFirstPurchaseDate = {};
+        let clientLatestNameMap = {};
+        let maxOriginalDate = null;
+        let minFileDate = null;
+        let maxFileDate = null;
+
+        // Global state for filters
+        const appState = {
+            filters: {
+                startDate: null,
+                endDate: null,
+                grupo: null,
+                fabrica: null,
+                fabricaPrefix: null,
+                truck: null,
+                transportista: null,
+            }
+        };
+
+        // Web Worker for processing XLSX file
+        const workerCode = `
+            importScripts('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+
+            /**
+             * NUEVA FUNCIÓN DE AYUDA
+             * Parsea un valor de fecha/hora de Excel, que puede ser un número (serial)
+             * o un string (ej: "DD/MM/YYYY HH:MM:SS").
+             * Devuelve un objeto Date en UTC o null.
+             */
+            function parseExcelDateTime(value) {
+                if (typeof value === 'number') {
+                    // Es un número serial de fecha/hora de Excel
+                    const dateInfo = XLSX.SSF.parse_date_code(value);
+                    if (dateInfo) {
+                        // Construimos la fecha en UTC para evitar problemas de zona horaria
+                        return new Date(Date.UTC(
+                            dateInfo.y, dateInfo.m - 1, dateInfo.d, 
+                            dateInfo.H, dateInfo.M, dateInfo.S
+                        ));
+                    }
+                } else if (typeof value === 'string') {
+                    // Intentamos parsear el formato "DD/MM/YYYY HH:MM:SS"
+                    const parts = value.split(' ');
+                    if (parts.length === 2) {
+                        const dateParts = parts[0].split('/');
+                        const timeParts = parts[1].split(':');
+                        if (dateParts.length === 3 && timeParts.length === 3) {
+                            const [day, month, year] = dateParts.map(Number);
+                            const [hour, minute, second] = timeParts.map(Number);
+                            
+                            if (!isNaN(day) && !isNaN(month) && !isNaN(year) && !isNaN(hour) && !isNaN(minute) && !isNaN(second)) {
+                                // Construimos la fecha en UTC
+                                return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+                            }
+                        }
+                    }
+                     // Fallback por si es otro formato de string que Date.parse() entienda
+                    const d = new Date(value);
+                    if (d instanceof Date && !isNaN(d)) {
+                        return d; // Puede ser sensible a la zona horaria, pero es un fallback
+                    }
+                }
+                return null; // Valor inválido o vacío
+            }
+
+            self.onmessage = function(event) {
+                const { arrayBuffer } = event.data;
+                try {
+                    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                    if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) throw new Error('El archivo XLSX no contiene hojas o está corrupto.');
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    if (!worksheet) throw new Error(\`No se pudo encontrar la hoja "\${firstSheetName}".\`);
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+                    if (jsonData.length === 0) throw new Error('La primera hoja del archivo XLSX está vacía.');
+                    const originalHeaders = jsonData[0].map(header => header?.toString().trim() || '');
+                    
+                    // --- Lógica de deduplicación para mantener el último ---
+                    const uniqueRowsMap = new Map(); 
+
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const rowValues = jsonData[i];
+                        const tempOriginalRow = {};
+                        if (!rowValues || rowValues.length < originalHeaders.length) continue;
+                        for (let j = 0; j < originalHeaders.length; j++) {
+                            tempOriginalRow[originalHeaders[j]] = rowValues[j];
+                        }
+
+                        // NEW: Filter by 'Anulado' column. Only process rows where 'Anulado' is 'N'.
+                        // NUEVO: Filtrar por la columna 'Anulado'. Solo procesar filas donde 'Anulado' sea 'N'.
+                        const anuladoValue = tempOriginalRow['Anulado'];
+                        if (anuladoValue !== 'N') {
+                            continue; // Skip this row if 'Anulado' is not 'N'
+                        }
+
+                        const nombrePlanta = tempOriginalRow['Nombre planta'];
+                        const numeroAlbaran = tempOriginalRow['Número albarán'];
+
+                        if (nombrePlanta !== undefined && numeroAlbaran !== undefined) {
+                            const uniqueKey = \`\${nombrePlanta}|\${numeroAlbaran}\`;
+                            uniqueRowsMap.set(uniqueKey, tempOriginalRow); // Sobrescribe el anterior, quedándose con el último
+                        } else {
+                            // Fila sin claves de duplicación, se añade con una clave única para no perderla
+                            uniqueRowsMap.set(\`row-\${i}\`, tempOriginalRow);
+                        }
+                    }
+                    // --- Fin de la lógica de deduplicación ---
+
+                    const data = [];
+                    for (const tempOriginalRow of uniqueRowsMap.values()) {
+                        const cabeceraNomenclaturaReducidaRaw = tempOriginalRow['CabeceraNomenclaturaReducida'];
+                        if (cabeceraNomenclaturaReducidaRaw !== undefined && (cabeceraNomenclaturaReducidaRaw === 'A' || cabeceraNomenclaturaReducidaRaw === 'O')) continue;
+                        const finalRow = {};
+                        finalRow['Fabrica'] = tempOriginalRow['Nombre planta'] || '';
+                        const resistenciaFormula = tempOriginalRow['Resistencia Fórmula'] || '';
+                        finalRow['Grupo'] = \`\${cabeceraNomenclaturaReducidaRaw || ''}-\${resistenciaFormula}\`;
+                        finalRow['Nomenclatura'] = finalRow['Grupo'];
+                        finalRow['Articulo'] = tempOriginalRow['Tamaño Fórmula'] || '';
+                        finalRow['Calidad'] = tempOriginalRow['Consistencia Fórmula'] || '';
+                        const exposicionGeneral = tempOriginalRow['Exposición General Fórmula'] || '';
+                        const exposicionEspecifica1 = tempOriginalRow['Exposición Especifica 1 Fórmula'] || '';
+                        const exposicionEspecifica2 = tempOriginalRow['Exposición Especifica 2 Fórmula'] || '';
+                        const exposicionEspecifica3 = tempOriginalRow['Exposición Especifica 3 Fórmula'] || '';
+                        const envaseParts = [];
+                        if (exposicionGeneral) envaseParts.push(exposicionGeneral);
+                        if (exposicionEspecifica1) envaseParts.push(exposicionEspecifica1);
+                        if (exposicionEspecifica2) envaseParts.push(exposicionEspecifica2);
+                        if (exposicionEspecifica3) envaseParts.push(exposicionEspecifica3);
+                        finalRow['Envase'] = envaseParts.join('+');
+                        finalRow['NombreCliente'] = tempOriginalRow['Nombre cliente'] || '';
+                        finalRow['Cliente'] = tempOriginalRow['NIF Cliente'] || ''; 
+                        finalRow['MatriculaCamion'] = (tempOriginalRow['Matricula Camión'] || '').toString().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                        finalRow['NombreTransportista'] = tempOriginalRow['Nombre Transportista'] || '';
+                        let dateValue = tempOriginalRow['Fecha Dosificación Albarán'];
+                        if (typeof dateValue === 'number') {
+                            const date = XLSX.SSF.parse_date_code(dateValue);
+                            if (date && !isNaN(date.y) && !isNaN(date.m) && !isNaN(date.d)) {
+                                const jsDate = new Date(Date.UTC(date.y, date.m - 1, date.d));
+                                if (!isNaN(jsDate.getTime())) finalRow['Fecha'] = jsDate.toISOString().split('T')[0];
+                                else finalRow['Fecha'] = dateValue;
+                            } else finalRow['Fecha'] = dateValue;
+                        } else if (typeof dateValue === 'string') {
+                            const parts = dateValue.split('/');
+                            if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) finalRow['Fecha'] = \`\${parts[2]}-\${parts[1].padStart(2, '0')}-\${parts[0].padStart(2, '0')}\`;
+                            else {
+                                // Soporte para formato DD/MM/YYYY HH:MM:SS (solo fecha)
+                                const datePart = dateValue.split(' ')[0];
+                                const parts = datePart.split('/');
+                                if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+                                    finalRow['Fecha'] = \`\${parts[2]}-\${parts[1].padStart(2, '0')}-\${parts[0].padStart(2, '0')}\`;
+                                } else {
+                                    const d = new Date(dateValue);
+                                    if (d instanceof Date && !isNaN(d)) finalRow['Fecha'] = \`\${d.getFullYear()}-\${(d.getMonth() + 1).toString().padStart(2, '0')}-\${d.getDate().toString().padStart(2, '0')}\`;
+                                    else finalRow['Fecha'] = dateValue;
+                                }
+                            }
+                        } else finalRow['Fecha'] = dateValue;
+                        
+                        let quantityValue = tempOriginalRow['Volumen Facturar Albarán'];
+                        if (typeof quantityValue === 'number') finalRow['Cantidad'] = quantityValue;
+                        else if (typeof quantityValue === 'string') finalRow['Cantidad'] = parseFloat(quantityValue.replace(',', '.')) || 0;
+                        else finalRow['Cantidad'] = 0;
+                        if ((finalRow['Cantidad'] || 0) === 0) continue;
+                        finalRow['Relacion_AC_Real_Formula'] = parseFloat(tempOriginalRow['Relación A/C Real Fórmula']) || 0;
+                        finalRow['Contenido_Cemento_Real_Formula'] = parseFloat(tempOriginalRow['Contenido Cemento Real Fórmula']) || 0;
+                        
+                        // --- MODIFICADO: Cálculo de Tiempos usando parseExcelDateTime ---
+                        
+                        const horaSalidaDate = parseExcelDateTime(tempOriginalRow['Hora Salida Planta Albarán']);
+                        const horaLlegadaDate = parseExcelDateTime(tempOriginalRow['Hora Llegada Obra Albarán']);
+
+                        if (horaSalidaDate && horaLlegadaDate && horaLlegadaDate >= horaSalidaDate) {
+                            // Diferencia en milisegundos, convertida a minutos
+                            const diffMs = horaLlegadaDate.getTime() - horaSalidaDate.getTime();
+                            finalRow['TiempoViaje'] = diffMs / (1000 * 60);
+                        } else {
+                            finalRow['TiempoViaje'] = null;
+                        }
+
+                        const horaInicioDescargaDate = parseExcelDateTime(tempOriginalRow['Hora Inicio Descarga Albarán']);
+                        const horaFinDescargaDate = parseExcelDateTime(tempOriginalRow['Hora Fin Descarga']);
+                        const horaLimiteUsoDate = parseExcelDateTime(tempOriginalRow['Hora Limite Uso Albarán']);
+
+                        // Calcular TiempoDescarga
+                        if (horaInicioDescargaDate && horaFinDescargaDate && horaFinDescargaDate >= horaInicioDescargaDate) {
+                            const diffMs = horaFinDescargaDate.getTime() - horaInicioDescargaDate.getTime();
+                            finalRow['TiempoDescarga'] = diffMs / (1000 * 60);
+                        } else {
+                            finalRow['TiempoDescarga'] = null;
+                        }
+                        
+                        // Calcular DescargaTardia (Lógica corregida)
+                        finalRow['DescargaTardia'] = null; // Default
+                        if (horaFinDescargaDate && horaLimiteUsoDate) {
+                            // Comparamos directamente los objetos Date
+                            if (horaFinDescargaDate > horaLimiteUsoDate) {
+                                finalRow['DescargaTardia'] = true; // Es tarde
+                            } else {
+                                finalRow['DescargaTardia'] = false; // No es tarde
+                            }
+                        }
+                        // --- FIN MODIFICACIÓN ---
+
+
+                        if (finalRow['Fecha']) data.push(finalRow);
+                    }
+                    self.postMessage({ status: 'success', data: data });
+                } catch (error) {
+                    self.postMessage({ status: 'error', message: error.message });
+                }
+            };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+        const xlsxWorker = new Worker(blobUrl);
+
+        // Event Listeners
+        document.getElementById('xlsxFile').addEventListener('change', handleFileSelect, false);
+        document.getElementById('applyFilterBtn').addEventListener('click', applyDateFilter, false);
+        document.getElementById('resetFilterBtn').addEventListener('click', resetAllFilters, false);
+
+        document.getElementById('comunidadFilter').addEventListener('change', (e) => {
+            appState.filters.fabricaPrefix = e.target.value || null;
+            applyFilters();
+        });
+        document.getElementById('plantaFilter').addEventListener('change', (e) => {
+            appState.filters.fabrica = e.target.value || null;
+            applyFilters();
+        });
+        document.getElementById('nomenclaturaFilter').addEventListener('change', (e) => {
+            appState.filters.grupo = e.target.value || null;
+            applyFilters();
+        });
+        document.getElementById('transportistaFilter').addEventListener('change', (e) => {
+            appState.filters.transportista = e.target.value || null;
+            applyFilters();
+        });
+        document.getElementById('camionFilter').addEventListener('change', (e) => {
+            appState.filters.truck = e.target.value || null;
+            applyFilters();
+        });
+        
+        document.addEventListener('click', function(event) {
+            const removeBtn = event.target.closest('.remove-filter-btn');
+            if (removeBtn) {
+                const filterType = removeBtn.dataset.filterType;
+                if (filterType) {
+                    if (filterType === 'date') {
+                        appState.filters.startDate = null;
+                        appState.filters.endDate = null;
+                        if (minFileDate && maxFileDate) {
+                            document.getElementById('startDate').value = minFileDate;
+                            document.getElementById('endDate').value = maxFileDate;
+                        }
+                        showNotification('Filtro de fecha restablecido al rango completo.');
+                    } else {
+                        appState.filters[filterType] = null;
+                        showNotification('Filtro de ' + filterType.charAt(0).toUpperCase() + filterType.slice(1) + ' restablecido.');
+                    }
+                    applyFilters();
+                }
+                return;
+            }
+
+            const truckCell = event.target.closest('#tripsAndVolumeTableContainer .truck-plant-table tbody td:first-child');
+            if (truckCell) {
+                const truckId = truckCell.dataset.truckId;
+                if (truckId) {
+                    appState.filters.truck = appState.filters.truck === truckId ? null : truckId;
+                    showNotification(appState.filters.truck ? `Filtrando por Camión: "${truckId}"` : `Filtro de Camión "${truckId}" restablecido.`);
+                    applyFilters();
+                }
+            }
+
+            const transportistaCell = event.target.closest('#transportistasTableContainer .truck-plant-table tbody td:first-child');
+            if (transportistaCell) {
+                const transportistaId = transportistaCell.dataset.transportistaId;
+                if (transportistaId) {
+                    appState.filters.transportista = appState.filters.transportista === transportistaId ? null : transportistaId;
+                    showNotification(appState.filters.transportista ? `Filtrando por Transportista: "${transportistaId}"` : `Filtro de Transportista "${transportistaId}" restablecido.`);
+                    applyFilters();
+                }
+            }
+        });
+
+        // UI Helper Functions
+        function showNotification(message, duration = 3000) {
+            const notificationBar = document.getElementById('notificationBar');
+            const notificationMessage = document.getElementById('notificationMessage');
+            notificationMessage.textContent = message;
+            notificationBar.classList.add('show');
+            setTimeout(() => {
+                notificationBar.classList.remove('show');
+            }, duration);
+        }
+
+        function wrapText(text, maxWidth) {
+            if (typeof text !== 'string') return [String(text)];
+            const words = text.split(' ');
+            let currentLine = words[0] || '';
+            const lines = [];
+            for (let i = 1; i < words.length; i++) {
+                if (currentLine.length + words[i].length + 1 <= maxWidth) {
+                    currentLine += ' ' + words[i];
+                } else {
+                    lines.push(currentLine);
+                    currentLine = words[i];
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        function showLoadingIndicator() {
+            document.getElementById('loadingIndicator').classList.add('is-visible');
+        }
+
+        function hideLoadingIndicator() {
+            document.getElementById('loadingIndicator').classList.remove('is-visible');
+        }
+        
+        // File Handling and Initial Processing
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                showLoadingIndicator();
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    xlsxWorker.postMessage({ arrayBuffer: e.target.result });
+                };
+                reader.onerror = function() {
+                    showNotification('Error al leer el archivo.');
+                    hideLoadingIndicator();
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function populateDropdownFilters(data) {
+            const comunidadFilter = document.getElementById('comunidadFilter');
+            const plantaFilter = document.getElementById('plantaFilter');
+            const nomenclaturaFilter = document.getElementById('nomenclaturaFilter');
+            const transportistaFilter = document.getElementById('transportistaFilter');
+            const camionFilter = document.getElementById('camionFilter');
+
+            const comunidades = [...new Set(data.map(row => (row['Fabrica'] && typeof row['Fabrica'] === 'string' && row['Fabrica'].length >= 2) ? row['Fabrica'].substring(0, 2).toUpperCase() : null).filter(Boolean))].sort();
+            const plantas = [...new Set(data.map(row => row['Fabrica']).filter(Boolean))].sort();
+            const nomenclaturas = [...new Set(data.map(row => row['Grupo']).filter(Boolean))].sort();
+            const transportistas = [...new Set(data.map(row => row['NombreTransportista']).filter(Boolean))].sort();
+            const camiones = [...new Set(data.map(row => row['MatriculaCamion']).filter(Boolean))].sort();
+
+            const populate = (select, options, defaultText = 'Todas') => {
+                const currentValue = select.value;
+                select.innerHTML = `<option value="">${defaultText}</option>`;
+                options.forEach(option => {
+                    const opt = document.createElement('option');
+                    opt.value = option;
+                    opt.textContent = option;
+                    select.appendChild(opt);
+                });
+                select.value = currentValue;
+            };
+
+            populate(comunidadFilter, comunidades, 'Todas');
+            populate(plantaFilter, plantas, 'Todas');
+            populate(nomenclaturaFilter, nomenclaturas, 'Todas');
+            populate(transportistaFilter, transportistas, 'Todos');
+            populate(camionFilter, camiones, 'Todos');
+        }
+
+        xlsxWorker.onmessage = function(event) {
+            hideLoadingIndicator();
+            const { status, data, message } = event.data;
+
+            if (status === 'success') {
+                originalSalesData = data;
+                precalculateClientFirstPurchaseDates();
+                precalculateClientLatestNames();
+
+                if (originalSalesData.length > 0) {
+                    document.getElementById('dashboardContent').classList.remove('d-none');
+                    document.getElementById('dateFilterControls').classList.remove('d-none');
+                    document.getElementById('activeFiltersSection').classList.remove('d-none');
+                    document.getElementById('advancedFilterControls').classList.remove('d-none'); // Show advanced filters
+                    
+                    populateDropdownFilters(originalSalesData); // Populate the new dropdowns
+                    
+                    const allDates = originalSalesData.map(row => row['Fecha']).filter(dateStr => dateStr).sort();
+                    if (allDates.length > 0) {
+                        minFileDate = allDates[0];
+                        maxFileDate = allDates[allDates.length - 1];
+                        maxOriginalDate = new Date(maxFileDate + 'T23:59:59Z'); 
+                    } else {
+                        minFileDate = null;
+                        maxFileDate = null;
+                        maxOriginalDate = null;
+                    }
+
+                    setInitialDateRange(originalSalesData);
+                    appState.filters.startDate = new Date(document.getElementById('startDate').value + 'T00:00:00Z');
+                    appState.filters.endDate = new Date(document.getElementById('endDate').value + 'T23:59:59Z');
+                    applyFilters();
+                    showNotification(`Archivo procesado correctamente. ${originalSalesData.length} registros únicos encontrados.`);
+                } else {
+                    showNotification('No se pudieron leer datos válidos del archivo.');
+                    document.getElementById('dashboardContent').classList.add('d-none');
+                    document.getElementById('dateFilterControls').classList.add('d-none');
+                    document.getElementById('activeFiltersSection').classList.add('d-none');
+                }
+            } else if (status === 'error') {
+                showNotification(`Error al procesar el archivo: ${message}`);
+            }
+        };
+        
+        // Filter Logic
+        function setInitialDateRange(data) {
+            if (data.length === 0) return;
+            const dates = data.map(row => row['Fecha']).filter(date => date).sort();
+            if (dates.length === 0) return;
+            
+            const lastDateStr = dates[dates.length - 1];
+            document.getElementById('endDate').value = lastDateStr;
+
+            const lastDate = new Date(lastDateStr + 'T00:00:00Z');
+            const firstDayOfMonth = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), 1));
+            const formattedFirstDayOfMonth = `${firstDayOfMonth.getUTCFullYear()}-${(firstDayOfMonth.getUTCMonth() + 1).toString().padStart(2, '0')}-${firstDayOfMonth.getUTCDate().toString().padStart(2, '0')}`;
+            document.getElementById('startDate').value = formattedFirstDayOfMonth;
+        }
+
+        function applyDateFilter() {
+            const startDateStr = document.getElementById('startDate').value;
+            const endDateStr = document.getElementById('endDate').value;
+            if (!startDateStr || !endDateStr) {
+                showNotification('Por favor, selecciona una fecha de inicio y una fecha de fin.');
+                return;
+            }
+            const startDate = new Date(startDateStr + 'T00:00:00Z');
+            const endDate = new Date(endDateStr + 'T23:59:59Z');
+
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                 showNotification('Formato de fecha inválido.');
+                 return;
+            }
+            if (startDate > endDate) {
+                showNotification('La fecha de inicio no puede ser posterior a la fecha de fin.');
+                return;
+            }
+            appState.filters.startDate = startDate;
+            appState.filters.endDate = endDate;
+            applyFilters();
+        }
+
+        function resetAllFilters() {
+            Object.keys(appState.filters).forEach(key => appState.filters[key] = null);
+            setInitialDateRange(originalSalesData);
+            const startDateStr = document.getElementById('startDate').value;
+            const endDateStr = document.getElementById('endDate').value;
+            if (startDateStr && endDateStr) {
+                appState.filters.startDate = new Date(startDateStr + 'T00:00:00Z');
+                appState.filters.endDate = new Date(endDateStr + 'T23:59:59Z');
+            }
+            applyFilters();
+            showNotification('Todos los filtros han sido restablecidos.');
+        }
+
+        function getNonDateFilteredData(sourceData) {
+            let filteredData = [...sourceData];
+            if (appState.filters.grupo) filteredData = filteredData.filter(row => row['Grupo'] === appState.filters.grupo);
+            if (appState.filters.fabrica) filteredData = filteredData.filter(row => row['Fabrica'] === appState.filters.fabrica);
+            if (appState.filters.fabricaPrefix) {
+                filteredData = filteredData.filter(row => {
+                    const prefix = (row['Fabrica'] && typeof row['Fabrica'] === 'string' && row['Fabrica'].length >= 2) ? row['Fabrica'].substring(0, 2).toUpperCase() : 'Otros';
+                    return prefix === appState.filters.fabricaPrefix;
+                });
+            }
+            if (appState.filters.truck) filteredData = filteredData.filter(row => row['MatriculaCamion'] === appState.filters.truck);
+            if (appState.filters.transportista) filteredData = filteredData.filter(row => row['NombreTransportista'] === appState.filters.transportista);
+            return filteredData;
+        }
+
+        function applyFilters() {
+            let currentFilteredData = [...originalSalesData];
+            
+            if (appState.filters.startDate && appState.filters.endDate) {
+                currentFilteredData = currentFilteredData.filter(row => {
+                    if (!row['Fecha']) return false;
+                    const rowDate = new Date(row['Fecha'] + 'T00:00:00Z'); 
+                    return !isNaN(rowDate.getTime()) && rowDate.getTime() >= appState.filters.startDate.getTime() && rowDate.getTime() <= appState.filters.endDate.getTime();
+                });
+            }
+            if (appState.filters.grupo) currentFilteredData = currentFilteredData.filter(row => row['Grupo'] === appState.filters.grupo);
+            if (appState.filters.fabrica) currentFilteredData = currentFilteredData.filter(row => row['Fabrica'] === appState.filters.fabrica);
+            if (appState.filters.fabricaPrefix) {
+                currentFilteredData = currentFilteredData.filter(row => {
+                    const prefix = (row['Fabrica'] && typeof row['Fabrica'] === 'string' && row['Fabrica'].length >= 2) ? row['Fabrica'].substring(0, 2).toUpperCase() : 'Otros';
+                    return prefix === appState.filters.fabricaPrefix;
+                });
+            }
+            if (appState.filters.truck) currentFilteredData = currentFilteredData.filter(row => row['MatriculaCamion'] === appState.filters.truck);
+            if (appState.filters.transportista) currentFilteredData = currentFilteredData.filter(row => row['NombreTransportista'] === appState.filters.transportista);
+            
+            salesData = currentFilteredData; 
+
+            renderActiveFiltersUI();
+            updateDropdownsFromState();
+            updateChartCardHighlights();
+
+            if (salesData.length > 0) {
+                displayKPIs(salesData);
+                displayClientKPIs(salesData);
+                displayFormulaKPIs(salesData);
+                displayTimeKPIs(salesData);
+                setTimeout(() => { renderCharts(salesData); }, 50); 
+                renderPivotTable(salesData);
+            } else {
+                showNotification('No hay datos disponibles para los filtros seleccionados.');
+                clearDashboard();
+            }
+        }
+        
+        // Rendering Functions
+        function renderActiveFiltersUI() {
+            const container = document.getElementById('activeFiltersContainer');
+            container.innerHTML = '<span class="fw-bold me-2">Filtros Activos:</span>';
+            let hasFilters = false;
+
+            const filterLabels = {
+                fabrica: 'Planta',
+                grupo: 'Nomenclatura',
+                fabricaPrefix: 'Comunidad',
+                truck: 'Camión',
+                transportista: 'Transportista'
+            };
+
+            for (const key in filterLabels) {
+                if (appState.filters[key]) {
+                    hasFilters = true;
+                    const value = appState.filters[key];
+                    container.innerHTML += `
+                        <span class="badge rounded-pill filter-badge d-flex align-items-center">
+                            ${filterLabels[key]}: ${value}
+                            <button type="button" class="btn-close remove-filter-btn" aria-label="Remove Filter" data-filter-type="${key}"></button>
+                        </span>
+                    `;
+                }
+            }
+
+            if (appState.filters.startDate && appState.filters.endDate) {
+                 hasFilters = true;
+                 const start = appState.filters.startDate.toISOString().split('T')[0];
+                 const end = appState.filters.endDate.toISOString().split('T')[0];
+                 container.innerHTML += `
+                    <span class="badge rounded-pill filter-badge d-flex align-items-center">
+                        Fecha: ${start} a ${end}
+                        <button type="button" class="btn-close remove-filter-btn" aria-label="Remove Filter" data-filter-type="date"></button>
+                    </span>
+                `;
+            }
+
+            if (!hasFilters) {
+                container.innerHTML += '<span class="text-muted fst-italic">Ninguno</span>';
+            }
+        }
+
+        function updateDropdownsFromState() {
+            document.getElementById('comunidadFilter').value = appState.filters.fabricaPrefix || '';
+            document.getElementById('plantaFilter').value = appState.filters.fabrica || '';
+            document.getElementById('nomenclaturaFilter').value = appState.filters.grupo || '';
+            document.getElementById('transportistaFilter').value = appState.filters.transportista || '';
+            document.getElementById('camionFilter').value = appState.filters.truck || '';
+        }
+        
+        function updateChartCardHighlights() {
+            document.getElementById('fabricaChartCard').classList.toggle('filtered-chart-card', !!appState.filters.fabrica);
+            document.getElementById('grupoChartCard').classList.toggle('filtered-chart-card', !!appState.filters.grupo);
+            document.getElementById('fabricaPrefixChartCard').classList.toggle('filtered-chart-card', !!appState.filters.fabricaPrefix);
+            document.getElementById('trucksAndPlantsTableSection').classList.toggle('filtered-chart-card', !!appState.filters.truck);
+            document.getElementById('transportistasTableSection').classList.toggle('filtered-chart-card', !!appState.filters.transportista);
+        }
+
+        function clearDashboard() {
+            document.getElementById('totalQuantityKPI').innerText = '0.00';
+            document.getElementById('uniqueGroupsKPI').innerText = '0';
+            document.getElementById('uniqueClientsKPI').innerText = '0';
+            document.getElementById('avgDailyVolumeKPI').innerHTML = 'N/A';
+            document.getElementById('avgDailyVolumeValues').innerText = '';
+            document.getElementById('kpiIconAvgDailyVolume').className = 'bi bi-dash-lg';
+            document.getElementById('momGrowthKPI').innerHTML = 'N/A'; 
+            document.getElementById('autoconsumoGDHKPI').innerText = '0.00';
+            document.getElementById('negativeVolumeAlbaranesKPI').innerText = '0';
+            document.getElementById('maxSalesDayDate').innerText = 'N/A'; 
+            document.getElementById('maxSalesDayValue').innerText = 'N/A'; 
+            document.getElementById('momGrowthValues').innerText = ''; 
+            
+            for (const chartKey in charts) {
+                if (charts[chartKey]) {
+                    if (typeof charts[chartKey].destroy === 'function') {
+                        charts[chartKey].destroy();
+                    } else if (charts[chartKey].id && typeof Plotly !== 'undefined') {
+                        Plotly.purge(charts[chartKey]);
+                    }
+                }
+            }
+            charts = {};
+
+            document.getElementById('tripsAndVolumeTableContainer').innerHTML = '<p class="text-center text-muted py-4">No hay datos para mostrar.</p>';
+            document.getElementById('transportistasTableContainer').innerHTML = '<p class="text-center text-muted py-4">No hay datos para mostrar.</p>';
+            document.getElementById('pivotTableContainer').innerHTML = '<p class="text-center text-muted py-4">No hay datos para mostrar.</p>';
+            
+            // Clear Client Analysis
+            document.getElementById('newClientsKPI').innerText = '-';
+            document.getElementById('returningClientsKPI').innerText = '-';
+            document.getElementById('newClientsVolumeKPI').innerText = '-';
+            document.getElementById('returningClientsVolumeKPI').innerText = '-';
+            document.getElementById('clientDetailTableContainer').innerHTML = '<p class="text-center text-muted py-4">No hay datos de clientes para mostrar.</p>';
+            document.getElementById('avgCementoKPI').innerText = '-';
+            
+            // Clear Time Analysis
+            document.getElementById('minTimeKPI').innerText = '-';
+            document.getElementById('maxTimeKPI').innerText = '-';
+            // --- NUEVO: Limpiar KPIs de descarga ---
+            document.getElementById('minDischargeTimeKPI').innerText = '-';
+            document.getElementById('maxDischargeTimeKPI').innerText = '-';
+            document.getElementById('lateDischargeCountKPI').innerText = '-';
+            // --- FIN NUEVO ---
+            document.getElementById('timesTableContainer').innerHTML = '<p class="text-center text-muted py-4">No hay datos de tiempos para mostrar.</p>';
+        }
+
+        function precalculateClientFirstPurchaseDates() {
+            clientFirstPurchaseDate = {};
+            originalSalesData.forEach(row => {
+                const client = row['Cliente'];
+                const dateStr = row['Fecha'];
+                if (client && dateStr) {
+                    const currentDate = new Date(dateStr + 'T00:00:00Z');
+                    if (!isNaN(currentDate.getTime())) {
+                        if (!clientFirstPurchaseDate[client] || currentDate < new Date(clientFirstPurchaseDate[client])) {
+                            clientFirstPurchaseDate[client] = dateStr;
+                        }
+                    }
+                }
+            });
+        }
+
+        function precalculateClientLatestNames() {
+            const latestNameData = {};
+            originalSalesData.forEach(row => {
+                const nif = row['Cliente'];
+                const name = row['NombreCliente'];
+                const date = row['Fecha'];
+
+                if (nif && name) {
+                    if (!latestNameData[nif] || date >= latestNameData[nif].date) {
+                        latestNameData[nif] = { date: date, name: name };
+                    }
+                }
+            });
+
+            clientLatestNameMap = {};
+            for (const nif in latestNameData) {
+                clientLatestNameMap[nif] = latestNameData[nif].name;
+            }
+        }
+
+        function displayKPIs(data) {
+            // Basic KPIs
+            const totalQuantity = data.reduce((total, row) => total + (row['Cantidad'] || 0), 0);
+            document.getElementById('totalQuantityKPI').innerText = totalQuantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const uniqueGroups = new Set(data.map(row => row['Grupo'])).size;
+            document.getElementById('uniqueGroupsKPI').innerText = uniqueGroups.toLocaleString();
+            const uniqueClients = new Set(data.map(row => row['Cliente'])).size;
+            document.getElementById('uniqueClientsKPI').innerText = uniqueClients.toLocaleString();
+
+            const avgDailyVolumeKPIElement = document.getElementById('avgDailyVolumeKPI');
+            const avgDailyVolumeIconElement = document.getElementById('kpiIconAvgDailyVolume');
+            const avgDailyVolumeValuesElement = document.getElementById('avgDailyVolumeValues');
+            
+            const dataForMoM = getNonDateFilteredData(originalSalesData);
+            const referenceDate = appState.filters.endDate || maxOriginalDate;
+            
+            if (referenceDate) {
+                // Common date calculations
+                const currentEndUTC = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), referenceDate.getUTCDate(), 23, 59, 59, 999));
+                const currentStartUTC = new Date(Date.UTC(referenceDate.getUTCFullYear(), referenceDate.getUTCMonth(), 1, 0, 0, 0, 0));
+                
+                const prevMonthYearUTC = referenceDate.getUTCMonth() === 0 ? referenceDate.getUTCFullYear() - 1 : referenceDate.getUTCFullYear();
+                const prevMonthUTC = referenceDate.getUTCMonth() === 0 ? 11 : referenceDate.getUTCMonth() - 1;
+                const lastDayOfPrevMonthUTC = new Date(Date.UTC(prevMonthYearUTC, prevMonthUTC + 1, 0)).getUTCDate(); 
+                const prevPeriodDayUTC = Math.min(referenceDate.getUTCDate(), lastDayOfPrevMonthUTC);
+
+                const previousEndUTC = new Date(Date.UTC(prevMonthYearUTC, prevMonthUTC, prevPeriodDayUTC, 23, 59, 59, 999));
+                const previousStartUTC = new Date(Date.UTC(prevMonthYearUTC, prevMonthUTC, 1, 0, 0, 0, 0));
+
+                const currentPeriodSalesData = dataForMoM.filter(row => {
+                    const rowDate = new Date(row['Fecha'] + 'T00:00:00Z');
+                    return rowDate.getTime() >= currentStartUTC.getTime() && rowDate.getTime() <= currentEndUTC.getTime();
+                });
+                const previousPeriodSalesData = dataForMoM.filter(row => {
+                    const rowDate = new Date(row['Fecha'] + 'T00:00:00Z');
+                    return rowDate.getTime() >= previousStartUTC.getTime() && rowDate.getTime() <= previousEndUTC.getTime();
+                });
+
+                // --- KPI 1: Avg Daily Volume ---
+                const currentTotalVolume = currentPeriodSalesData.reduce((sum, row) => sum + (row['Cantidad'] || 0), 0);
+                const currentUniqueSalesDays = new Set(currentPeriodSalesData.map(row => row['Fecha'])).size;
+                const currentPeriodAvgDailyVolume = currentUniqueSalesDays > 0 ? currentTotalVolume / currentUniqueSalesDays : 0;
+                
+                const previousTotalVolume = previousPeriodSalesData.reduce((sum, row) => sum + (row['Cantidad'] || 0), 0);
+                const previousUniqueSalesDays = new Set(previousPeriodSalesData.map(row => row['Fecha'])).size;
+                const previousPeriodAvgDailyVolume = previousUniqueSalesDays > 0 ? previousTotalVolume / previousUniqueSalesDays : 0;
+                
+                let avgDailyGrowthValue = 0;
+                if (previousPeriodAvgDailyVolume > 0) {
+                    avgDailyGrowthValue = ((currentPeriodAvgDailyVolume - previousPeriodAvgDailyVolume) / previousPeriodAvgDailyVolume) * 100;
+                } else if (currentPeriodAvgDailyVolume > 0) {
+                    avgDailyGrowthValue = Infinity;
+                }
+                
+                const avgDailyGrowth = avgDailyGrowthValue === Infinity ? '∞%' : avgDailyGrowthValue.toFixed(2) + '%';
+                avgDailyVolumeKPIElement.innerHTML = (avgDailyGrowthValue > 0) ? `<span style="color: ${COLORS.brighterGreen};">&uarr; ${avgDailyGrowth}</span>` : (avgDailyGrowthValue < 0) ? `<span style="color: ${COLORS.primaryRed};">&darr; ${avgDailyGrowth}</span>` : avgDailyGrowth;
+                avgDailyVolumeIconElement.className = (avgDailyGrowthValue > 0) ? 'bi bi-graph-up' : (avgDailyGrowthValue < 0) ? 'bi bi-graph-down' : 'bi bi-dash-lg';
+                
+                const currentPeriodDisplayAvgDaily = `${currentStartUTC.getUTCDate().toString().padStart(2, '0')}-${(currentStartUTC.getUTCMonth() + 1).toString().padStart(2, '0')} al ${currentEndUTC.getUTCDate().toString().padStart(2, '0')}-${(currentEndUTC.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                const previousPeriodDisplayAvgDaily = `${previousStartUTC.getUTCDate().toString().padStart(2, '0')}-${(previousStartUTC.getUTCMonth() + 1).toString().padStart(2, '0')} al ${previousEndUTC.getUTCDate().toString().padStart(2, '0')}-${(previousEndUTC.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                avgDailyVolumeValuesElement.innerText = `${currentPeriodAvgDailyVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${currentPeriodDisplayAvgDaily}, ${currentUniqueSalesDays} días) vs ${previousPeriodAvgDailyVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${previousPeriodDisplayAvgDaily}, ${previousUniqueSalesDays} días)`;
+
+                // --- KPI 2: MoM Total Volume Growth ---
+                const momGrowthKPIElement = document.getElementById('momGrowthKPI');
+                const momGrowthIconElement = document.getElementById('kpiIconMomGrowth');
+                const momGrowthValuesElement = document.getElementById('momGrowthValues');
+
+                const currentPeriodSales = currentTotalVolume;
+                const previousPeriodSales = previousTotalVolume;
+                
+                let momGrowthValue = 0;
+                if (previousPeriodSales > 0) {
+                    momGrowthValue = ((currentPeriodSales - previousPeriodSales) / previousPeriodSales) * 100;
+                } else if (currentPeriodSales > 0) {
+                    momGrowthValue = Infinity;
+                }
+                
+                const momGrowth = momGrowthValue === Infinity ? '∞%' : momGrowthValue.toFixed(2) + '%';
+                momGrowthKPIElement.innerHTML = (momGrowthValue > 0) ? `<span style="color: ${COLORS.brighterGreen};">&uarr; ${momGrowth}</span>` : (momGrowthValue < 0) ? `<span style="color: ${COLORS.primaryRed};">&darr; ${momGrowth}</span>` : momGrowth;
+                momGrowthIconElement.className = (momGrowthValue > 0) ? 'bi bi-graph-up' : (momGrowthValue < 0) ? 'bi bi-graph-down' : 'bi bi-dash-lg';
+                
+                const currentPeriodDisplay = `${currentStartUTC.getUTCDate().toString().padStart(2, '0')}-${(currentStartUTC.getUTCMonth() + 1).toString().padStart(2, '0')} al ${currentEndUTC.getUTCDate().toString().padStart(2, '0')}-${(currentEndUTC.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                const previousPeriodDisplay = `${previousStartUTC.getUTCDate().toString().padStart(2, '0')}-${(previousStartUTC.getUTCMonth() + 1).toString().padStart(2, '0')} al ${previousEndUTC.getUTCDate().toString().padStart(2, '0')}-${(previousEndUTC.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                momGrowthValuesElement.innerText = `${currentPeriodSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${currentPeriodDisplay}) vs ${previousPeriodSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${previousPeriodDisplay})`;
+            }
+
+            // Other KPIs
+            const autoconsumoGDHVolume = data.reduce((total, row) => (row['NombreCliente'] === 'GENERAL DE HORMIGONES, S.A.') ? total + (row['Cantidad'] || 0) : total, 0);
+            document.getElementById('autoconsumoGDHKPI').innerText = autoconsumoGDHVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            // Calculate volume for 'GENERAL DE HORMIGONES, S.A.' by plant for tooltip
+            const autoconsumoGDHVolumeByPlant = data.reduce((acc, row) => {
+                if (row['NombreCliente'] === 'GENERAL DE HORMIGONES, S.A.') {
+                    const fabrica = row['Fabrica'] || 'Desconocida';
+                    acc[fabrica] = (acc[fabrica] || 0) + (row['Cantidad'] || 0);
+                }
+                return acc;
+            }, {});
+
+            let tooltipTextAutoconsumo = 'Volumen Autoconsumo (GDH) por Planta:\n';
+            if (Object.keys(autoconsumoGDHVolumeByPlant).length > 0) {
+                Object.entries(autoconsumoGDHVolumeByPlant).sort((a, b) => b[1] - a[1]).forEach(([plant, volume]) => {
+                    tooltipTextAutoconsumo += `${plant}: ${volume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+`;
+                });
+            } else {
+                tooltipTextAutoconsumo += 'No hay datos de autoconsumo.';
+            }
+            document.getElementById('autoconsumoGDHKPI').closest('.card-body').setAttribute('title', tooltipTextAutoconsumo.trim());
+
+
+            const negativeVolumeAlbaranesCount = data.filter(row => (row['Cantidad'] || 0) < 0).length;
+            document.getElementById('negativeVolumeAlbaranesKPI').innerText = negativeVolumeAlbaranesCount.toLocaleString();
+
+            // Calculate negative volume invoices by plant for tooltip
+            const negativeVolumeAlbaranesByPlant = data.reduce((acc, row) => {
+                if ((row['Cantidad'] || 0) < 0) {
+                    const fabrica = row['Fabrica'] || 'Desconocida';
+                    acc[fabrica] = (acc[fabrica] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            let tooltipTextNegativeAlbaranes = 'Albaranes Volumen < 0 por Planta:\n';
+            if (Object.keys(negativeVolumeAlbaranesByPlant).length > 0) {
+                Object.entries(negativeVolumeAlbaranesByPlant).sort((a, b) => b[1] - a[1]).forEach(([plant, count]) => {
+                    tooltipTextNegativeAlbaranes += `${plant}: ${count.toLocaleString()}
+`;
+                });
+            } else {
+                tooltipTextNegativeAlbaranes += 'No hay albaranes con volumen negativo.';
+            }
+            document.getElementById('negativeVolumeAlbaranesKPI').closest('.card-body').setAttribute('title', tooltipTextNegativeAlbaranes.trim());
+
+            const salesByDay = data.reduce((acc, row) => { 
+                if (row['Fecha']) acc[row['Fecha']] = (acc[row['Fecha']] || 0) + (row['Cantidad'] || 0);
+                return acc;
+            }, {});
+            let maxSalesDay = 'N/A', maxSalesValue = 0;
+            for (const date in salesByDay) {
+                if (salesByDay[date] > maxSalesValue) {
+                    maxSalesValue = salesByDay[date];
+                    maxSalesDay = date;
+                }
+            }
+            document.getElementById('maxSalesDayDate').innerText = maxSalesDay;
+            document.getElementById('maxSalesDayValue').innerText = maxSalesValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function displayClientKPIs(data) {
+            if (!appState.filters.startDate) {
+                return;
+            }
+
+            const clientsInData = new Map();
+            data.forEach(row => {
+                const clientName = row['Cliente'];
+                if (!clientName) return;
+                if (!clientsInData.has(clientName)) {
+                    clientsInData.set(clientName, { volume: 0 });
+                }
+                clientsInData.get(clientName).volume += (row['Cantidad'] || 0);
+            });
+
+            let newClientsCount = 0;
+            let returningClientsCount = 0;
+            let newClientsVolume = 0;
+            let returningClientsVolume = 0;
+            
+            const filterStartTime = appState.filters.startDate.getTime();
+
+            for (const [client, values] of clientsInData.entries()) {
+                const firstPurchaseStr = clientFirstPurchaseDate[client];
+                if (firstPurchaseStr) {
+                    const firstPurchaseTime = new Date(firstPurchaseStr + 'T00:00:00Z').getTime();
+                    if (firstPurchaseTime >= filterStartTime) {
+                        newClientsCount++;
+                        newClientsVolume += values.volume;
+                    } else {
+                        returningClientsCount++;
+                        returningClientsVolume += values.volume;
+                    }
+                }
+            }
+
+            document.getElementById('newClientsKPI').innerText = newClientsCount.toLocaleString();
+            document.getElementById('returningClientsKPI').innerText = returningClientsCount.toLocaleString();
+            document.getElementById('newClientsVolumeKPI').innerText = newClientsVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('returningClientsVolumeKPI').innerText = returningClientsVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function displayFormulaKPIs(data) {
+            const cementoValues = data.map(row => row['Contenido_Cemento_Real_Formula']).filter(v => typeof v === 'number' && !isNaN(v));
+            const averageCemento = cementoValues.length > 0 ? cementoValues.reduce((s, v) => s + v, 0) / cementoValues.length : 0;
+            document.getElementById('avgCementoKPI').innerText = averageCemento.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+
+        function displayTimeKPIs(data) {
+            // --- CÁLCULO TIEMPOS DESCARGA ---
+            const dischargeTimes = data.map(row => row['TiempoDescarga']).filter(t => t !== null && t >= 0);
+            if (dischargeTimes.length > 0) {
+                const minTime = Math.min(...dischargeTimes);
+                const maxTime = Math.max(...dischargeTimes);
+                document.getElementById('minDischargeTimeKPI').innerText = minTime.toFixed(2);
+                document.getElementById('maxDischargeTimeKPI').innerText = maxTime.toFixed(2);
+            } else {
+                document.getElementById('minDischargeTimeKPI').innerText = '-';
+                document.getElementById('maxDischargeTimeKPI').innerText = '-';
+            }
+            
+            // --- CÁLCULO DESCARGAS TARDÍAS ---
+            const lateDischargeCount = data.filter(row => row['DescargaTardia'] === true).length;
+            document.getElementById('lateDischargeCountKPI').innerText = lateDischargeCount.toLocaleString();
+
+            // --- CÁLCULO TIEMPOS VIAJE ---
+            const travelTimes = data.map(row => row['TiempoViaje']).filter(t => t !== null && t >= 0);
+            if (travelTimes.length > 0) {
+                const minTime = Math.min(...travelTimes);
+                const maxTime = Math.max(...travelTimes);
+                document.getElementById('minTimeKPI').innerText = minTime.toFixed(2);
+                document.getElementById('maxTimeKPI').innerText = maxTime.toFixed(2);
+            } else {
+                document.getElementById('minTimeKPI').innerText = '-';
+                document.getElementById('maxTimeKPI').innerText = '-';
+            }
+        }
+
+        // --- MODIFICADO: renderTimesTable ---
+        function renderTimesTable(data) {
+            const container = document.getElementById('timesTableContainer');
+
+            const timesByPlant = data.reduce((acc, row) => {
+                const plant = row['Fabrica'] || 'Desconocida';
+                if (!acc[plant]) {
+                    acc[plant] = {
+                        totalTravelTime: 0, travelCount: 0,
+                        totalDischargeTime: 0, dischargeCount: 0,
+                        lateDischargeCount: 0 // <-- NUEVO
+                    };
+                }
+                
+                if (row['TiempoViaje'] !== null && row['TiempoViaje'] >= 0) { 
+                    acc[plant].totalTravelTime += row['TiempoViaje'];
+                    acc[plant].travelCount++;
+                }
+
+                if (row['TiempoDescarga'] !== null && row['TiempoDescarga'] >= 0) { 
+                    acc[plant].totalDischargeTime += row['TiempoDescarga'];
+                    acc[plant].dischargeCount++;
+                }
+
+                if (row['DescargaTardia'] === true) { // <-- NUEVO
+                    acc[plant].lateDischargeCount++;
+                }
+
+                return acc;
+            }, {});
+
+            // Check if there is any data at all
+            const hasData = Object.values(timesByPlant).some(d => d.travelCount > 0 || d.dischargeCount > 0);
+            if (!hasData) {
+                 container.innerHTML = '<p class="text-center text-muted py-4">No hay datos de tiempos para mostrar.</p>';
+                 return;
+            }
+
+            const sortedPlants = Object.keys(timesByPlant).sort();
+
+            let tableHTML = '<table class="client-detail-table"><thead><tr><th>Métrica</th>';
+            sortedPlants.forEach(plant => {
+                tableHTML += `<th>${plant}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // Row 1: Tiempo Medio a Obra (Existente)
+            tableHTML += '<tr><td>Tiempo Medio a Obra (min)</td>';
+            sortedPlants.forEach(plant => {
+                const avgTime = timesByPlant[plant].travelCount > 0 ? timesByPlant[plant].totalTravelTime / timesByPlant[plant].travelCount : 0;
+                tableHTML += `<td>${avgTime > 0 ? avgTime.toFixed(2) : '-'}</td>`;
+            });
+            tableHTML += '</tr>';
+
+            // Row 2: Tiempo Medio Descarga (Nuevo)
+            tableHTML += '<tr><td>Tiempo Medio Descarga (min)</td>';
+            sortedPlants.forEach(plant => {
+                const avgTime = timesByPlant[plant].dischargeCount > 0 ? timesByPlant[plant].totalDischargeTime / timesByPlant[plant].dischargeCount : 0;
+                tableHTML += `<td>${avgTime > 0 ? avgTime.toFixed(2) : '-'}</td>`;
+            });
+            tableHTML += '</tr>';
+            
+            // Row 3: Descargas Tardías (Nuevo)
+            tableHTML += '<tr><td>Descargas Tardías (nº)</td>';
+            sortedPlants.forEach(plant => {
+                const lateCount = timesByPlant[plant].lateDischargeCount;
+                tableHTML += `<td>${lateCount > 0 ? lateCount.toLocaleString() : '-'}</td>`;
+            });
+            tableHTML += '</tr>';
+
+            tableHTML += '</tbody></table>';
+            container.innerHTML = tableHTML;
+        }
+        // --- FIN MODIFICACIÓN ---
+
+
+        function renderCharts(mainFilteredData) {
+             for (const chartKey in charts) {
+                if (charts[chartKey]) {
+                    if (typeof charts[chartKey].destroy === 'function') charts[chartKey].destroy();
+                    else if (charts[chartKey].id && typeof Plotly !== 'undefined') Plotly.purge(charts[chartKey]);
+                }
+            }
+            charts = {};
+            document.getElementById('tripsAndVolumeTableContainer').innerHTML = '';
+            document.getElementById('transportistasTableContainer').innerHTML = '';
+
+            const dataIgnoringDateFilter = getNonDateFilteredData(originalSalesData);
+            
+            charts.salesMonthOverMonth = renderSalesMonthOverMonthChart(dataIgnoringDateFilter);
+            charts.salesOverTime = renderSalesOverTimeChart(mainFilteredData);
+            charts.salesByFabrica = renderSalesByFabricaChart(mainFilteredData);
+            charts.salesByFabricaPrefix = renderSalesByFabricaPrefixChart(mainFilteredData);
+            renderSalesByGrupoChart(mainFilteredData);
+            renderCementoFormulaChart(mainFilteredData);
+            // renderAvgCementoRealChart(mainFilteredData);
+            // charts.salesByCliente = renderSalesByClienteChart(mainFilteredData);
+            charts.salesDistributionByQuantity = renderSalesDistributionByQuantityChart(mainFilteredData);
+            charts.salesByCalidad = renderSalesByCalidadChart(mainFilteredData);
+            charts.salesByArticulo = renderSalesByArticuloChart(mainFilteredData);
+            charts.salesByEnvase = renderSalesByEnvaseChart(mainFilteredData);
+            charts.volumeByTruck = renderVolumeByTruckChart(mainFilteredData);
+            charts.volumeByTransportista = renderVolumeByTransportistaChart(mainFilteredData);
+            renderTripsAndVolumeTable(mainFilteredData);
+            renderTransportistasTable(mainFilteredData);
+            renderPivotTable(mainFilteredData);
+
+            // Client Analysis Charts
+            renderNewVsReturningCharts(mainFilteredData);
+            renderClientMatrixChart(mainFilteredData);
+            renderClientDetailTable(mainFilteredData);
+            renderTimesTable(mainFilteredData); // Esta llamada ya estaba, renderizará la tabla actualizada
+        }
+
+        // Chart Helper Functions
+        function createChart(canvasId, chartConfig) {
+            const chartContainer = document.getElementById(canvasId).parentNode;
+            const oldCanvas = document.getElementById(canvasId);
+            if (oldCanvas) oldCanvas.remove();
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id = canvasId;
+            chartContainer.appendChild(newCanvas);
+            const ctx = newCanvas.getContext('2d');
+            return ctx ? new Chart(ctx, chartConfig) : null;
+        }
+
+        const defaultChartOptions = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: COLORS.darkText } },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => `${c.dataset.label || c.label || ''}: ${(typeof c.raw === 'number' ? c.raw : 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                        title: (items) => items.length > 0 ? wrapText(items[0].label, 25).join('\n') : ''
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: COLORS.darkText, callback: function(v) { return wrapText(this.getLabelForValue(v), 15); } }, grid: { color: COLORS.lighterPaleGreen }, beginAtZero: true },
+                y: { ticks: { color: COLORS.darkText, callback: (v) => v.toLocaleString() }, grid: { color: COLORS.lighterPaleGreen } }
+            }
+        };
+
+        const pieDoughnutPolarOptions = {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { color: COLORS.darkText, boxWidth:15, padding:15, font: {size: 10} } },
+                tooltip: defaultChartOptions.plugins.tooltip
+            }
+        };
+        
+        function hexToRgb(hex) {
+            let r=0,g=0,b=0; 
+            if(hex.length==7){r=parseInt(hex.substring(1,3),16);g=parseInt(hex.substring(3,5),16);b=parseInt(hex.substring(5,7),16);}
+            else if(hex.length==4){r=parseInt(hex[1]+hex[1],16);g=parseInt(hex[2]+hex[2],16);b=parseInt(hex[3]+hex[3],16);}
+            return[r,g,b];
+        }
+
+        function generateChartColors(numColors, opacity = 0.7) {
+            const palette = [
+                COLORS.primaryGreen,
+                COLORS.brighterGreen,
+                COLORS.mediumDarkGreen,
+                COLORS.paleGreen,
+                COLORS.darkerGreen,
+                COLORS.lighterPaleGreen,
+                COLORS.primaryGreen,
+                COLORS.brighterGreen,
+                COLORS.mediumDarkGreen,
+                COLORS.paleGreen
+            ];
+            const colors = [];
+            for (let i = 0; i < numColors; i++) {
+                const hex = palette[i % palette.length];
+                const rgb = hexToRgb(hex);
+                colors.push(`rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`);
+            }
+            return colors;
+        }
+
+        // Specific Chart Rendering Functions
+        function renderSalesMonthOverMonthChart(data) {
+            const salesByMonthAndFabrica = data.reduce((acc, row) => {
+                const date = new Date(row['Fecha'] + 'T00:00:00Z');
+                if (!isNaN(date.getTime())) {
+                    const yearMonth = `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+                    const fabrica = row['Fabrica'] || 'Desconocido';
+                    const quantity = row['Cantidad'] || 0;
+                    if (!acc[yearMonth]) acc[yearMonth] = {};
+                    acc[yearMonth][fabrica] = (acc[yearMonth][fabrica] || 0) + quantity;
+                }
+                return acc;
+            }, {});
+            const monthLabels = Object.keys(salesByMonthAndFabrica).sort();
+            const uniqueFabricas = Array.from(new Set(data.map(row => row['Fabrica']))).filter(f => f).sort();
+            
+            const monthlyTotals = monthLabels.map(month => {
+                return Object.values(salesByMonthAndFabrica[month]).reduce((sum, val) => sum + val, 0);
+            });
+
+            const nonZeroMonthlyTotals = monthlyTotals.filter(total => total > 0);
+            const averageMonthlyVolume = nonZeroMonthlyTotals.length > 0 ? nonZeroMonthlyTotals.reduce((s, q) => s + q, 0) / nonZeroMonthlyTotals.length : 0;
+
+            const datasets = uniqueFabricas.map((fabrica, index) => ({
+                type: 'bar', label: fabrica, 
+                stack: 'bars', // EXPLICIT STACK
+                data: monthLabels.map(month => salesByMonthAndFabrica[month][fabrica] || 0), 
+                backgroundColor: generateChartColors(uniqueFabricas.length, 0.7)[index], 
+                borderColor: COLORS.darkestGreenBorder, borderWidth: 1 
+            }));
+
+            // Add average line first to avoid rendering bug
+            datasets.push({
+                type: 'line',
+                label: `Media (${averageMonthlyVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})`,
+                data: new Array(monthLabels.length).fill(averageMonthlyVolume),
+                borderColor: COLORS.primaryRed,
+                borderWidth: 2,
+                fill: false,
+                tension: 0,
+                pointRadius: 0,
+                borderDash: [5, 5],
+                yAxisID: 'y'
+            });
+
+            // Add total line second
+            datasets.push({
+                type: 'line', label: 'Volumen Total Mensual', data: monthlyTotals,
+                borderColor: COLORS.primaryGreen, borderWidth: 3, fill: false, tension: 0.1,
+                pointRadius: 4, pointBackgroundColor: COLORS.primaryGreen, yAxisID: 'y'
+            });
+
+            return createChart('salesMonthOverMonthChart', {
+                type: 'bar', data: { labels: monthLabels, datasets: datasets },
+                options: { ...defaultChartOptions, 
+                    plugins: { 
+                        ...defaultChartOptions.plugins, 
+                        legend: {
+                            labels: {
+                                filter: function(legendItem, chartData) {
+                                    const text = legendItem.text;
+                                    return text === 'Volumen Total Mensual' || text.startsWith('Media');
+                                },
+                                sort: function(a, b) {
+                                    if (a.text.startsWith('Volumen')) return -1;
+                                    if (b.text.startsWith('Volumen')) return 1;
+                                    return 0;
+                                }
+                            }
+                        },
+                        tooltip: { 
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    let value = context.raw;
+                                    if (context.dataset.type === 'bar') {
+                                        const totalMonthVolume = monthlyTotals[context.dataIndex]; 
+                                        const percentage = totalMonthVolume > 0 ? ((value / totalMonthVolume) * 100).toFixed(2) : '0.00';
+                                        return `${label}${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${percentage}%)`;
+                                    }
+                                    return `${label}${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                }
+                            }
+                        }
+                    }
+                }, 
+                scales: { x: {...defaultChartOptions.scales.x, stacked: true, title:{display:true, text:'Mes', color:COLORS.darkText}}, 
+                          y: {...defaultChartOptions.scales.y, stacked:true, title:{display:true, text:'Volumen Facturado', color:COLORS.darkText}}
+                }
+            });
+        }
+
+        function renderSalesOverTimeChart(data) {
+            const salesByDate = data.reduce((acc, row) => {
+                if (row['Fecha'] && row['Cantidad'] !== undefined) acc[row['Fecha']] = (acc[row['Fecha']] || 0) + row['Cantidad'];
+                return acc;
+            }, {});
+            const sortedDates = Object.keys(salesByDate).sort();
+            const quantities = sortedDates.map(date => salesByDate[date]);
+            const salesDaysQuantities = quantities.filter(qty => qty > 0);
+            const averageQuantity = salesDaysQuantities.length > 0 ? salesDaysQuantities.reduce((s,q) => s+q,0) / salesDaysQuantities.length : 0;
+            
+            return createChart('salesOverTimeChart', {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: 'Volumen Facturado', data: quantities, tension: 0.1,
+                        borderColor: COLORS.primaryGreen, backgroundColor: generateChartColors(1, 0.2)[0], fill: true
+                    }, {
+                        label: `Media (${averageQuantity.toFixed(2)})`, data: new Array(sortedDates.length).fill(averageQuantity), type: 'line',
+                        borderColor: COLORS.primaryRed, borderWidth: 2, fill: false, tension: 0, pointRadius: 0, borderDash: [5, 5]
+                    }]
+                },
+                options: { ...defaultChartOptions, scales: { ...defaultChartOptions.scales, x: {...defaultChartOptions.scales.x, title: {display: true, text: 'Fecha'}}, y: {...defaultChartOptions.scales.y, title: {display: true, text: 'Volumen'}}}}
+            });
+        }
+        
+        function renderSalesByFabricaChart(data) {
+            const salesByFabrica = data.reduce((acc, row) => {
+                if (row['Fabrica'] && row['Cantidad'] !== undefined) {
+                    acc[row['Fabrica']] = (acc[row['Fabrica']] || 0) + row['Cantidad'];
+                }
+                return acc;
+            }, {});
+            const salesArray = Object.keys(salesByFabrica).map(fabrica => ({ fabrica, cantidad: salesByFabrica[fabrica] })).sort((a,b) => a.fabrica.localeCompare(b.fabrica));
+            const labels = salesArray.map(item => item.fabrica);
+            const quantities = salesArray.map(item => item.cantidad);
+            const averageQuantity = quantities.length > 0 ? quantities.reduce((s,q) => s+q,0) / quantities.length : 0;
+            
+            const chart = createChart('salesByFabricaChart', {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Volumen Facturado', data: quantities, backgroundColor: generateChartColors(labels.length), borderColor: COLORS.darkestGreenBorder, borderWidth: 1
+                    }, {
+                        label: `Media (${averageQuantity.toFixed(2)})`, data: new Array(labels.length).fill(averageQuantity), type: 'line',
+                        borderColor: COLORS.primaryRed, borderWidth: 2, fill: false, pointRadius: 0, borderDash: [5, 5]
+                    }]
+                },
+                options: { ...defaultChartOptions,
+                    scales: { ...defaultChartOptions.scales, x: {...defaultChartOptions.scales.x, title: {display: true, text: 'Nombre de Planta'}, ticks: {...defaultChartOptions.scales.x.ticks, font:{size:9}, autoSkip: false, callback: function(value) { return wrapText(this.getLabelForValue(value), 20); }}}, y: {...defaultChartOptions.scales.y, title: {display: true, text: 'Volumen'}} },
+                    onClick: (event, elements) => {
+                        if (!elements || elements.length === 0 || elements[0].datasetIndex !== 0) return;
+                        const label = labels[elements[0].index];
+                        appState.filters.fabrica = appState.filters.fabrica === label ? null : label;
+                        showNotification(appState.filters.fabrica ? `Filtrando por Planta: "${label}"` : `Filtro de Planta "${label}" restablecido.`);
+                        applyFilters();
+                    }
+                }
+            });
+            charts.salesByFabrica = chart;
+            return chart;
+        }
+
+        function renderSalesByGrupoChart(data) {
+            const salesByGrupo = data.reduce((acc, row) => {
+                const grupoKey = row['Grupo'] || 'Desconocido';
+                if (row['Cantidad'] !== undefined) {
+                    acc[grupoKey] = (acc[grupoKey] || 0) + row['Cantidad'];
+                }
+                return acc;
+            }, {});
+            const labels = Object.keys(salesByGrupo);
+            const values = Object.values(salesByGrupo);
+            const plotDiv = document.getElementById('salesByGrupoPlotly');
+            
+            Plotly.newPlot(plotDiv, [{
+                type: "treemap", labels: labels, parents: Array(labels.length).fill(''), values: values,
+                textinfo: "label+value+percent parent",
+                marker: { colors: generateChartColors(labels.length, 1).map(c => c.replace('rgba', 'rgb').replace(', 1)', ')')), line: { width: 1, color: COLORS.mediumDarkGreen } },
+                hovertemplate: '<b>%{label}</b><br>Volumen: %{value:.2f}<br>Porcentaje: %{percentParent:.2%}<extra></extra>'
+            }], {
+                autosize: true,
+                margin: { l: 0, r: 0, b: 0, t: 0 }, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: '"Inter", sans-serif', color: COLORS.darkText },
+                hoverlabel: { bgcolor: COLORS.primaryGreen, font: { color: COLORS.lightText } }
+            }, { responsive: true, displayModeBar: false });
+
+            plotDiv.on('plotly_click', (data) => {
+                if (data.points.length > 0) {
+                    const clickedLabel = data.points[0].label;
+                    appState.filters.grupo = appState.filters.grupo === clickedLabel ? null : clickedLabel;
+                    showNotification(appState.filters.grupo ? `Filtrando por Nomenclatura: "${clickedLabel}"` : `Filtro de Nomenclatura "${clickedLabel}" restablecido.`);
+                    applyFilters();
+                }
+            });
+            charts.salesByGrupoPlotly = plotDiv;
+        }
+
+        function renderCementoFormulaChart(data) {
+            const container = document.getElementById('cementoFormulaChart');
+            if (!container) return;
+            Plotly.purge(container);
+
+            const filteredForChart = data.filter(d => d.Nomenclatura && d.Contenido_Cemento_Real_Formula != null);
+            if (filteredForChart.length === 0) {
+                container.innerHTML = '<div class="text-center text-muted py-4">No hay datos de cemento disponibles.</div>';
+                return;
+            }
+
+            const dataByNomenclatura = filteredForChart.reduce((acc, curr) => {
+                (acc[curr.Nomenclatura] = acc[curr.Nomenclatura] || []).push(curr.Contenido_Cemento_Real_Formula);
+                return acc;
+            }, {});
+
+            const traces = Object.entries(dataByNomenclatura).map(([nomenclatura, values]) => ({
+                type: 'violin', y: values, name: nomenclatura,
+                box: { visible: true }, meanline: { visible: true }, points: 'none',
+                line: { color: generateChartColors(1, 0.8)[0] }, marker: { color: generateChartColors(1, 0.6)[0] }
+            }));
+
+            Plotly.newPlot(container, traces, {
+                margin: { l: 60, r: 20, b: 100, t: 50 },
+                yaxis: { zeroline: false, title: 'Contenido Cemento Real Fórmula (kg/m³)', automargin: true, titlefont: { size: 12 } },
+                xaxis: { title: 'Nomenclatura', automargin: true, titlefont: { size: 12 }, tickangle: 45 },
+                showlegend: false, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: '"Inter", sans-serif', color: COLORS.darkText }, hoverlabel: { bgcolor: COLORS.primaryGreen, font: { color: COLORS.lightText } }
+            }, { responsive: true, displayModeBar: false });
+        }
+        
+        
+        
+        /* function renderSalesByClienteChart(data) {
+            const salesByCliente = data.reduce((acc, row) => {
+                const clienteKey = row['Cliente'] || 'Desconocido';
+                if (row['Cantidad'] !== undefined) {
+                    acc[clienteKey] = (acc[clienteKey] || 0) + row['Cantidad'];
+                }
+                return acc;
+            }, {});
+            const salesArray = Object.keys(salesByCliente).map(cliente => ({ cliente, cantidad: salesByCliente[cliente] })).sort((a,b) => b.cantidad - a.cantidad).slice(0,10);
+            return createChart('salesByClienteChart', {
+                type: 'bar',
+                data: { labels: salesArray.map(item => item.cliente), datasets: [{ label: 'Volumen Facturado', data: salesArray.map(item => item.cantidad), backgroundColor: generateChartColors(10), borderColor: COLORS.darkestGreenBorder, borderWidth: 1 }] },
+                options: { ...defaultChartOptions, scales: { ...defaultChartOptions.scales, 
+                    x: { title:{display:true, text:'Cliente'}, ticks:{ font:{size:9}, autoSkip: false, callback: function(value) { return wrapText(this.getLabelForValue(value), 30); }}}, 
+                    y: {...defaultChartOptions.scales.y, title:{display:true, text:'Volumen'}} 
+                }}
+            });
+        } */
+        
+        function renderSalesByFabricaPrefixChart(data) {
+            const salesByPrefix = data.reduce((acc, row) => {
+                const prefix = (row['Fabrica'] && typeof row['Fabrica'] === 'string' && row['Fabrica'].length >= 2) ? row['Fabrica'].substring(0,2).toUpperCase() : 'Otros';
+                if (row['Cantidad'] !== undefined) acc[prefix] = (acc[prefix] || 0) + row['Cantidad'];
+                return acc;
+            }, {});
+            const labels = Object.keys(salesByPrefix);
+            const quantities = Object.values(salesByPrefix);
+            const totalSales = quantities.reduce((s,q) => s+q,0);
+            
+            const chart = createChart('salesByFabricaPrefixChart', {
+                type: 'polarArea',
+                data: { labels: labels, datasets: [{ label: 'Volumen Facturado', data: quantities, backgroundColor: generateChartColors(labels.length), borderWidth: 1 }] },
+                options: { ...pieDoughnutPolarOptions, 
+                    plugins: {...pieDoughnutPolarOptions.plugins, tooltip: { callbacks: { label: (c) => {
+                        let label = c.label || ''; if (label) label += ': ';
+                        const value = typeof c.raw === 'number' ? c.raw : 0;
+                        const percentage = totalSales > 0 ? ((value / totalSales) * 100).toFixed(2) : '0.00';
+                        return `${label}${value.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})} (${percentage}%)`;
+                    }}}},
+                    onClick: (event, elements) => {
+                        if (!elements || elements.length === 0) return;
+                        const label = labels[elements[0].index];
+                        appState.filters.fabricaPrefix = appState.filters.fabricaPrefix === label ? null : label;
+                        showNotification(appState.filters.fabricaPrefix ? `Filtrando por Comunidad: "${label}"` : `Filtro de Comunidad "${label}" restablecido.`);
+                        applyFilters();
+                    }
+                }
+            });
+            charts.salesByFabricaPrefix = chart;
+            return chart;
+        }
+
+        function renderSalesDistributionByQuantityChart(data) {
+            const exactQuantitiesMap = {};
+            let plus10Count = 0, plus10Volume = 0;
+
+            data.forEach(row => {
+                const quantity = row['Cantidad'] || 0;
+                if (quantity <= 10) {
+                    const qStr = quantity.toString();
+                    if (!exactQuantitiesMap[qStr]) exactQuantitiesMap[qStr] = { count: 0, totalVolume: 0 };
+                    exactQuantitiesMap[qStr].count++;
+                    exactQuantitiesMap[qStr].totalVolume += quantity;
+                } else {
+                    plus10Count++;
+                    plus10Volume += quantity;
+                }
+            });
+
+            const distinctQuantities = Object.keys(exactQuantitiesMap).map(Number).sort((a,b) => a - b);
+            const allLabels = distinctQuantities.map(String);
+            const chartData = [];
+            let currentXPos = 0;
+            let maxTotalVolume = 0; // Initialize maxTotalVolume here
+
+            distinctQuantities.forEach(q => {
+                const dataPoint = exactQuantitiesMap[q.toString()];
+                maxTotalVolume = Math.max(maxTotalVolume, dataPoint.totalVolume);
+                chartData.push({ x: currentXPos++, y: dataPoint.count, r: 0, label: q.toString(), totalVolume: dataPoint.totalVolume });
+            });
+
+            if (plus10Count > 0) {
+                maxTotalVolume = Math.max(maxTotalVolume, plus10Volume);
+                chartData.push({ x: currentXPos++, y: plus10Count, r: 0, label: '+10', totalVolume: plus10Volume });
+                allLabels.push('+10');
+            }
+
+            const maxRadius = 40, minRadius = 5;
+            chartData.forEach(dp => { dp.r = maxTotalVolume > 0 ? (dp.totalVolume / maxTotalVolume) * (maxRadius - minRadius) + minRadius : minRadius; });
+
+            return createChart('salesDistributionByQuantityChart', {
+                type: 'bubble',
+                data: { datasets: [{ label: 'Albaranes por Volumen', data: chartData, backgroundColor: generateChartColors(allLabels.length), borderColor: generateChartColors(allLabels.length, 1), borderWidth: 1 }] },
+                options: { ...defaultChartOptions,
+                    scales: {
+                        x: { type: 'linear', min: -0.5, max: (allLabels.length > 0 ? allLabels.length - 1 : 0) + 0.5,
+                            ticks: { callback: (value) => allLabels[Math.round(value)] || '', stepSize: 1 },
+                            title: { display: true, text: 'Volumen Facturado' }
+                        },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Número de Albaranes' }, ticks: { callback: (value) => Number.isInteger(value) ? value : null } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => [`Albaranes de ${c.raw.label} m3`, `Número de Albaranes: ${c.raw.y.toLocaleString()}`, `Volumen Total: ${c.raw.totalVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`],
+                        title: () => ''
+                    }}}
+                }
+            });
+        }
+
+        function renderSalesByArticuloChart(data) {
+            const salesByArticulo = data.reduce((acc, row) => {
+                const articulo = row['Articulo']; const quantity = row['Cantidad'];
+                if (articulo && quantity !== undefined) acc[articulo] = (acc[articulo] || 0) + quantity;
+                return acc;
+            }, {});
+            const labels = Object.keys(salesByArticulo);
+            const scatterData = labels.map((label, index) => ({ x: index, y: salesByArticulo[label], label: label }));
+            return createChart('salesByArticuloChart', {
+                type: 'scatter',
+                data: { labels: labels, datasets: [{ label: 'Volumen Facturado', data: scatterData, backgroundColor: generateChartColors(labels.length, 0.8), pointRadius: 8 }] },
+                options: { ...defaultChartOptions, scales: {
+                        x: { type: 'category', labels: labels, ticks: { callback: function(v, i) { return wrapText(labels[i], 15); } }, title: { display: true, text: 'Tamaño de Fórmula' } },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Volumen Facturado' } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => `Tamaño: ${c.raw.label}, Volumen: ${c.raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, title: () => ''
+                    }}}
+                }
+            });
+        }
+
+        function renderSalesByCalidadChart(data) {
+            const salesByCalidad = data.reduce((acc, row) => {
+                const calidad = row['Calidad']; const quantity = row['Cantidad'];
+                if (calidad && quantity !== undefined) acc[calidad] = (acc[calidad] || 0) + quantity;
+                return acc;
+            }, {});
+            const labels = Object.keys(salesByCalidad);
+            const scatterData = labels.map((label, index) => ({ x: index, y: salesByCalidad[label], label: label }));
+            return createChart('salesByCalidadChart', {
+                type: 'scatter',
+                data: { labels: labels, datasets: [{ label: 'Volumen Facturado', data: scatterData, backgroundColor: generateChartColors(labels.length, 0.8), pointRadius: 8 }] },
+                options: { ...defaultChartOptions, scales: {
+                        x: { type: 'category', labels: labels, ticks: { callback: function(v, i) { return wrapText(labels[i], 15); } }, title: { display: true, text: 'Consistencia de Fórmula' } },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Volumen Facturado' } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => `Consistencia: ${c.raw.label}, Volumen: ${c.raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, title: () => ''
+                    }}}
+                }
+            });
+        }
+        
+        function renderSalesByEnvaseChart(data) {
+            const salesByEnvase = data.reduce((acc, row) => {
+                const envase = row['Envase']; const quantity = row['Cantidad'];
+                if (envase && quantity !== undefined) acc[envase] = (acc[envase] || 0) + quantity;
+                return acc;
+            }, {});
+            const labels = Object.keys(salesByEnvase);
+            const scatterData = labels.map((label, index) => ({ x: index, y: salesByEnvase[label], label: label }));
+            return createChart('salesByEnvaseChart', {
+                type: 'scatter',
+                data: { labels: labels, datasets: [{ label: 'Volumen Facturado', data: scatterData, backgroundColor: generateChartColors(labels.length, 0.8), pointRadius: 8 }] },
+                options: { ...defaultChartOptions, scales: {
+                        x: { type: 'category', labels: labels, ticks: { callback: function(v, i) { return wrapText(labels[i], 15); } }, title: { display: true, text: 'Exposición' } },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Volumen Facturado' } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => `Exposición: ${c.raw.label}, Volumen: ${c.raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, title: () => ''
+                    }}}
+                }
+            });
+        }
+        
+        function renderVolumeByTruckChart(data) {
+            const truckAggregatedData = data.reduce((acc, row) => { 
+                const truckId = row['MatriculaCamion'];
+                if (truckId) {
+                    if (!acc[truckId]) acc[truckId] = { volume: 0, trips: 0 };
+                    acc[truckId].volume += (row['Cantidad'] || 0);
+                    acc[truckId].trips++;
+                }
+                return acc;
+            }, {});
+            const sortedTrucks = Object.keys(truckAggregatedData).map(truckId => ({ truckId, ...truckAggregatedData[truckId] })).sort((a, b) => b.volume - a.volume);
+            
+            return createChart('volumeByTruckChart', {
+                type: 'bar',
+                data: { labels: sortedTrucks.map(item => item.truckId), datasets: [{ label: 'Volumen Facturado', data: sortedTrucks.map(item => item.volume), backgroundColor: generateChartColors(sortedTrucks.length), borderColor: COLORS.darkestGreenBorder, borderWidth: 1 }] },
+                options: { ...defaultChartOptions, indexAxis: 'y',
+                    scales: {
+                        x: { ...defaultChartOptions.scales.x, title: { display: true, text: 'Volumen Facturado' } },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Matrícula de Camión' }, ticks: { font: { size: 9 }, autoSkip: false, callback: function(value) { return wrapText(this.getLabelForValue(value), 15); } } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => {
+                            const truck = sortedTrucks[c.dataIndex];
+                            const avgVolumePerTrip = truck.trips > 0 ? (truck.volume / truck.trips) : 0;
+                            return [`Volumen: ${truck.volume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, `Viajes: ${truck.trips}`, `Media/Viaje: ${avgVolumePerTrip.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`];
+                        },
+                        title: (items) => items.length > 0 ? wrapText(items[0].label, 25).join('\n') : ''
+                    }}}
+                }
+            });
+        }
+
+        function renderVolumeByTransportistaChart(data) {
+            const transportistaAggregatedData = data.reduce((acc, row) => {
+                const transportistaName = row['NombreTransportista'] || 'Sin Transportista';
+                const truckId = row['MatriculaCamion'];
+                if (transportistaName) {
+                    if (!acc[transportistaName]) {
+                        acc[transportistaName] = { volume: 0, trips: 0, uniqueTrucks: new Set() };
+                    }
+                    acc[transportistaName].volume += (row['Cantidad'] || 0);
+                    acc[transportistaName].trips++;
+                    if (truckId) {
+                        acc[transportistaName].uniqueTrucks.add(truckId);
+                    }
+                }
+                return acc;
+            }, {});
+            const sortedTransportistas = Object.keys(transportistaAggregatedData).map(name => ({ name, ...transportistaAggregatedData[name] })).sort((a, b) => b.volume - a.volume);
+
+            return createChart('volumeByTransportistaChart', {
+                type: 'bar',
+                data: {
+                    labels: sortedTransportistas.map(item => item.name),
+                    datasets: [{
+                        label: 'Volumen Facturado',
+                        data: sortedTransportistas.map(item => item.volume),
+                        backgroundColor: generateChartColors(sortedTransportistas.length),
+                        borderColor: COLORS.darkestGreenBorder,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    ...defaultChartOptions,
+                    indexAxis: 'y', // Horizontal bar chart
+                    scales: {
+                        x: { ...defaultChartOptions.scales.x, title: { display: true, text: 'Volumen Facturado' } },
+                        y: {
+                            ...defaultChartOptions.scales.y,
+                            title: { display: true, text: 'Nombre de Transportista' },
+                            ticks: {
+                                font: { size: 9 },
+                                autoSkip: false,
+                                callback: function(value) { return wrapText(this.getLabelForValue(value), 25); }
+                            }
+                        }
+                    },
+                    plugins: {
+                        ...defaultChartOptions.plugins,
+                        tooltip: {
+                            callbacks: {
+                                label: (c) => {
+                                    const transportista = sortedTransportistas[c.dataIndex];
+                                    const avgVolumePerTrip = transportista.trips > 0 ? (transportista.volume / transportista.trips) : 0;
+                                    const numberOfUniqueTrucks = transportista.uniqueTrucks.size;
+                                    return [
+                                        `Volumen: ${transportista.volume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                                        `Viajes: ${transportista.trips}`,
+                                        `Media/Viaje: ${avgVolumePerTrip.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                                        `Número de Matrículas: ${numberOfUniqueTrucks}`
+                                    ];
+                                },
+                                title: (items) => items.length > 0 ? wrapText(items[0].label, 25).join('\n') : ''
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Table Rendering Functions
+        function renderTripsAndVolumeTable(data) {
+            const tableData = {};
+            const uniqueFabricas = new Set();
+            const truckDetails = {}; // Object to store truck details like transportista, volume, and trips
+
+            data.forEach(row => {
+                const truckId = row['MatriculaCamion'] || 'Sin Matrícula';
+                const fabrica = row['Fabrica'] || 'Sin Planta';
+                const quantity = row['Cantidad'] || 0;
+                const nombreTransportista = row['NombreTransportista'] || ''; // Get transportista name
+
+                // Initialize or update truck details
+                if (!truckDetails[truckId]) {
+                    truckDetails[truckId] = { volume: 0, trips: 0, nombreTransportista: nombreTransportista };
+                } else if (truckDetails[truckId].nombreTransportista === '' && nombreTransportista !== '') {
+                    // Update transportista name if it was initially empty but now available
+                    truckDetails[truckId].nombreTransportista = nombreTransportista;
+                }
+                truckDetails[truckId].volume += quantity;
+                truckDetails[truckId].trips++;
+
+                // Aggregate data for the pivot table structure (truck x fabrica)
+                if (!tableData[truckId]) tableData[truckId] = {};
+                if (!tableData[truckId][fabrica]) tableData[truckId][fabrica] = { volume: 0, trips: 0 };
+                tableData[truckId][fabrica].volume += quantity;
+                tableData[truckId][fabrica].trips++;
+
+                uniqueFabricas.add(fabrica);
+            });
+
+            // Sort trucks based on their total volume
+            const sortedTrucks = Object.keys(truckDetails).map(truckId => ({ truckId, ...truckDetails[truckId] })).sort((a, b) => b.volume - a.volume);
+            const sortedFabricas = Array.from(uniqueFabricas).sort();
+            const container = document.getElementById('tripsAndVolumeTableContainer');
+            
+            if (sortedTrucks.length === 0 || sortedFabricas.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No hay datos de camiones y plantas.</p>';
+                return;
+            }
+
+            let tableHTML = '<table class="truck-plant-table"><thead><tr><th>Camión / Transportista / Planta</th>'; // Adjusted header for transportista
+            sortedFabricas.forEach(fabrica => { tableHTML += `<th>${fabrica}</th>`; });
+            tableHTML += '<th>Total Camión</th></tr></thead><tbody>';
+
+            sortedTrucks.forEach(truck => { // Iterate over sortedTrucks which now contain truckId and details
+                const truckId = truck.truckId;
+                const nombreTransportista = truck.nombreTransportista;
+                
+                let maxVolumeForTruck = -1;
+                sortedFabricas.forEach(fabrica => {
+                    const data = tableData[truckId]?.[fabrica];
+                    if (data && data.volume > maxVolumeForTruck) maxVolumeForTruck = data.volume;
+                });
+
+                // Construct the cell content for the first column
+                const truckDisplayContent = nombreTransportista ? 
+                    `${truckId}<span style="font-size: 0.8em; display: block; white-space: normal;">(${nombreTransportista})</span>` :
+                    truckId;
+
+                tableHTML += `<tr><td data-truck-id="${truckId}">${truckDisplayContent}</td>`;
+                sortedFabricas.forEach(fabrica => {
+                    const data = tableData[truckId]?.[fabrica];
+                    const cellContent = (data && (data.trips > 0 || data.volume > 0)) ? `<span class="table-data-item-volume">${data.volume.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span><span class="table-data-item-trips">(${data.trips} v.)</span>` : '-';
+                    const cellClass = (data && data.volume === maxVolumeForTruck && data.volume > 0) ? 'highlight-max-volume' : '';
+                    tableHTML += `<td class="${cellClass}">${cellContent}</td>`;
+                });
+                const displayTotalVolume = (truck.volume || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                const displayTotalTrips = truck.trips || 0;
+                tableHTML += `<td class="total-column"><span class="table-data-item-volume">${displayTotalVolume}</span><span class="table-data-item-trips">(${displayTotalTrips} v.)</span></td>`;
+                tableHTML += '</tr>';
+            });
+            container.innerHTML = tableHTML + '</tbody></table>';
+        }
+
+        function renderTransportistasTable(data) {
+            const tableData = {};
+            const uniqueFabricas = new Set();
+            const transportistaDetails = {};
+
+            data.forEach(row => {
+                const transportistaName = row['NombreTransportista'] || 'Sin Transportista';
+                const fabrica = row['Fabrica'] || 'Sin Planta';
+                const quantity = row['Cantidad'] || 0;
+
+                if (!transportistaDetails[transportistaName]) {
+                    transportistaDetails[transportistaName] = { volume: 0, trips: 0 };
+                }
+                transportistaDetails[transportistaName].volume += quantity;
+                transportistaDetails[transportistaName].trips++;
+
+                if (!tableData[transportistaName]) tableData[transportistaName] = {};
+                if (!tableData[transportistaName][fabrica]) tableData[transportistaName][fabrica] = { volume: 0, trips: 0 };
+                tableData[transportistaName][fabrica].volume += quantity;
+                tableData[transportistaName][fabrica].trips++;
+
+                uniqueFabricas.add(fabrica);
+            });
+
+            const sortedTransportistas = Object.keys(transportistaDetails).map(name => ({ name, ...transportistaDetails[name] })).sort((a, b) => b.volume - a.volume);
+            const sortedFabricas = Array.from(uniqueFabricas).sort();
+            const container = document.getElementById('transportistasTableContainer');
+            
+            if (sortedTransportistas.length === 0 || sortedFabricas.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No hay datos de transportistas y plantas.</p>';
+                return;
+            }
+
+            let tableHTML = '<table class="truck-plant-table"><thead><tr><th>Transportista / Planta</th>';
+            sortedFabricas.forEach(fabrica => { tableHTML += `<th>${fabrica}</th>`; });
+            tableHTML += '<th>Total Transportista</th></tr></thead><tbody>';
+
+            sortedTransportistas.forEach(transportista => {
+                const transportistaName = transportista.name;
+                
+                let maxVolumeForTransportista = -1;
+                sortedFabricas.forEach(fabrica => {
+                    const data = tableData[transportistaName]?.[fabrica];
+                    if (data && data.volume > maxVolumeForTransportista) maxVolumeForTransportista = data.volume;
+                });
+
+                tableHTML += `<tr><td data-transportista-id="${transportistaName}">${transportistaName}</td>`;
+                sortedFabricas.forEach(fabrica => {
+                    const data = tableData[transportistaName]?.[fabrica];
+                    const cellContent = (data && (data.trips > 0 || data.volume > 0)) ? `<span class="table-data-item-volume">${data.volume.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span><span class="table-data-item-trips">(${data.trips} v.)</span>` : '-';
+                    const cellClass = (data && data.volume === maxVolumeForTransportista && data.volume > 0) ? 'highlight-max-volume' : '';
+                    tableHTML += `<td class="${cellClass}">${cellContent}</td>`;
+                });
+                const displayTotalVolume = (transportista.volume || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                const displayTotalTrips = transportista.trips || 0;
+                tableHTML += `<td class="total-column"><span class="table-data-item-volume">${displayTotalVolume}</span><span class="table-data-item-trips">(${displayTotalTrips} v.)</span></td>`;
+                tableHTML += '</tr>';
+            });
+            container.innerHTML = tableHTML + '</tbody></table>';
+        }
+
+        function renderPivotTable(data) {
+            const container = document.getElementById('pivotTableContainer');
+            if (data.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No hay datos para la tabla dinámica.</p>';
+                return;
+            }
+            const salesByDateAndFabrica = data.reduce((acc, row) => {
+                if (row['Fecha'] && row['Fabrica']) {
+                    if (!acc[row['Fecha']]) acc[row['Fecha']] = {};
+                    acc[row['Fecha']][row['Fabrica']] = (acc[row['Fecha']][row['Fabrica']] || 0) + (row['Cantidad'] || 0);
+                }
+                return acc;
+            }, {});
+            const uniqueDates = Object.keys(salesByDateAndFabrica).sort();
+            const uniqueFabricas = Array.from(new Set(data.map(row => row['Fabrica']).filter(Boolean))).sort();
+            
+            let tableHTML = '<table class="pivot-table"><thead><tr><th>Fecha</th>';
+            uniqueFabricas.forEach(fabrica => { tableHTML += `<th>${fabrica}</th>`; });
+            tableHTML += '<th>Total Fecha</th></tr></thead><tbody>';
+
+            uniqueDates.forEach(date => {
+                tableHTML += `<tr><td>${date}</td>`;
+                let rowTotal = 0;
+                let maxVolumeForRow = -1;
+                uniqueFabricas.forEach(fabrica => {
+                    const quantity = salesByDateAndFabrica[date][fabrica] || 0;
+                    if (quantity > maxVolumeForRow) maxVolumeForRow = quantity;
+                });
+                uniqueFabricas.forEach(fabrica => {
+                    const quantity = salesByDateAndFabrica[date][fabrica] || 0;
+                    const cellClass = (quantity === maxVolumeForRow && quantity > 0) ? 'highlight-max-volume' : '';
+                    tableHTML += `<td class="${cellClass}"><span class="table-data-item-volume">${quantity === 0 ? '-' : quantity.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></td>`;
+                    rowTotal += quantity;
+                });
+                tableHTML += `<td class="total-column"><span class="table-data-item-volume">${rowTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></td></tr>`;
+            });
+
+            tableHTML += '<tr><th>Total Planta</th>';
+            let grandTotal = 0;
+            uniqueFabricas.forEach(fabrica => {
+                 let colTotal = uniqueDates.reduce((sum, date) => sum + (salesByDateAndFabrica[date][fabrica] || 0), 0);
+                 tableHTML += `<th class="total-column"><span class="table-data-item-volume">${colTotal === 0 ? '-' : colTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></th>`;
+                 grandTotal += colTotal;
+            });
+            tableHTML += `<th class="total-column"><span class="table-data-item-volume">${grandTotal.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></th></tr>`;
+            container.innerHTML = tableHTML + '</tbody></table>';
+        }
+
+        // --- Client Analysis Functions ---
+        function getClientData(data) {
+            const clientSummary = {};
+            const filterStartTime = appState.filters.startDate ? appState.filters.startDate.getTime() : 0;
+
+            data.forEach(row => {
+                const clientNIF = row['Cliente'];
+                if (!clientNIF) return;
+
+                if (!clientSummary[clientNIF]) {
+                    const latestName = clientLatestNameMap[clientNIF] || row['NombreCliente'];
+                    clientSummary[clientNIF] = {
+                        nif: clientNIF,
+                        name: latestName,
+                        displayName: `${latestName} - ${clientNIF}`,
+                        totalVolume: 0,
+                        purchaseCount: 0,
+                        lastPurchaseDate: '1970-01-01',
+                        status: 'Recurrente',
+                        plants: {}
+                    };
+                    const firstPurchaseStr = clientFirstPurchaseDate[clientNIF];
+                    if (firstPurchaseStr) {
+                        const firstPurchaseTime = new Date(firstPurchaseStr + 'T00:00:00Z').getTime();
+                        if (firstPurchaseTime >= filterStartTime) {
+                            clientSummary[clientNIF].status = 'Nuevo';
+                        }
+                    }
+                }
+                
+                clientSummary[clientNIF].totalVolume += (row['Cantidad'] || 0);
+                clientSummary[clientNIF].purchaseCount++;
+                if (row['Fecha'] > clientSummary[clientNIF].lastPurchaseDate) {
+                    clientSummary[clientNIF].lastPurchaseDate = row['Fecha'];
+                }
+                const fabrica = row['Fabrica'] || 'Sin Planta';
+                clientSummary[clientNIF].plants[fabrica] = (clientSummary[clientNIF].plants[fabrica] || 0) + (row['Cantidad'] || 0);
+            });
+
+            return Object.values(clientSummary);
+        }
+
+        function renderNewVsReturningCharts(data) {
+            const clientData = getClientData(data);
+            const newClients = clientData.filter(c => c.status === 'Nuevo');
+            const returningClients = clientData.filter(c => c.status === 'Recurrente');
+
+            const newClientsVolume = newClients.reduce((sum, c) => sum + c.totalVolume, 0);
+            const returningClientsVolume = returningClients.reduce((sum, c) => sum + c.totalVolume, 0);
+
+            // Pie Chart (by count)
+            charts.newVsReturningPie = createChart('newVsReturningPieChart', {
+                type: 'pie',
+                data: {
+                    labels: ['Clientes Nuevos', 'Clientes Recurrentes'],
+                    datasets: [{
+                        data: [newClients.length, returningClients.length],
+                        backgroundColor: [COLORS.brighterGreen, COLORS.primaryGreen]
+                    }]
+                },
+                options: { ...pieDoughnutPolarOptions, plugins: { ...pieDoughnutPolarOptions.plugins, tooltip: { callbacks: { label: (c) => `${c.label}: ${c.raw.toLocaleString()}` } } } }
+            });
+
+            // Bar Chart (by volume)
+            charts.newVsReturningBar = createChart('newVsReturningBarChart', {
+                type: 'bar',
+                data: {
+                    labels: ['Volumen Total'],
+                    datasets: [
+                        { label: 'Clientes Nuevos', data: [newClientsVolume], backgroundColor: COLORS.brighterGreen },
+                        { label: 'Clientes Recurrentes', data: [returningClientsVolume], backgroundColor: COLORS.primaryGreen }
+                    ]
+                },
+                options: { ...defaultChartOptions, scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Volumen' } } } }
+            });
+        }
+
+        function renderClientMatrixChart(data) {
+            const clientData = getClientData(data);
+            const bubbleData = clientData.map(client => {
+                const avgVolume = client.purchaseCount > 0 ? client.totalVolume / client.purchaseCount : 0;
+                return {
+                    x: client.purchaseCount,
+                    y: client.totalVolume,
+                    r: Math.max(5, Math.sqrt(avgVolume) * 2), // Scale radius for better visibility
+                    label: client.displayName, // Use displayName here
+                    avgVolume: avgVolume
+                };
+            });
+
+            charts.clientMatrix = createChart('clientMatrixChart', {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Clientes',
+                        data: bubbleData,
+                        backgroundColor: generateChartColors(bubbleData.length, 0.6)
+                    }]
+                },
+                options: {
+                    ...defaultChartOptions,
+                    scales: {
+                        x: { ...defaultChartOptions.scales.x, title: { display: true, text: 'Número de Compras (Frecuencia)' } },
+                        y: { ...defaultChartOptions.scales.y, title: { display: true, text: 'Volumen Total Comprado (Valor)' } }
+                    },
+                    plugins: { ...defaultChartOptions.plugins, tooltip: { callbacks: {
+                        label: (c) => {
+                            const raw = c.raw;
+                            return [`Cliente: ${raw.label}`, `Compras: ${raw.x}`, `Volumen Total: ${raw.y.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, `Volumen Medio/Compra: ${raw.avgVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`];
+                        },
+                        title: () => ''
+                    }}}
+                }
+            });
+        }
+
+        function renderClientDetailTable(data) {
+            const container = document.getElementById('clientDetailTableContainer');
+            const clientData = getClientData(data);
+
+            const renderTableBody = (clients) => {
+                let bodyHtml = '';
+                clients.forEach(client => {
+                    const avgVolume = client.purchaseCount > 0 ? client.totalVolume / client.purchaseCount : 0;
+
+                    let tooltipText = 'Ventas por Planta:\n';
+                    if (client.plants && Object.keys(client.plants).length > 0) {
+                        Object.entries(client.plants)
+                              .sort((a, b) => b[1] - a[1])
+                              .forEach(([plant, volume]) => {
+                                  tooltipText += `${plant}: ${volume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}\n`;
+                              });
+                    } else {
+                        tooltipText += 'No hay datos de plantas.';
+                    }
+
+                    bodyHtml += `<tr>
+                        <td style="text-align: left;" title="${tooltipText.trim()}">${client.displayName}</td>
+                        <td>${client.status}</td>
+                        <td>${client.totalVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>${client.purchaseCount.toLocaleString()}</td>
+                        <td>${avgVolume.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td>${clientFirstPurchaseDate[client.nif] || 'N/A'}</td>
+                        <td>${client.lastPurchaseDate}</td>
+                    </tr>`;
+                });
+                return bodyHtml;
+            };
+
+            if (clientData.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted py-4">No hay datos de clientes para mostrar.</p>';
+                return;
+            }
+
+            container.innerHTML = `<table class="client-detail-table">
+                <thead>
+                    <tr>
+                        <th data-sort="name" style="cursor: pointer;">Nombre Cliente &#x2195;</th>
+                        <th data-sort="status" style="cursor: pointer;">Estado &#x2195;</th>
+                        <th data-sort="totalVolume" style="cursor: pointer;">Volumen Total &#x2195;</th>
+                        <th data-sort="purchaseCount" style="cursor: pointer;">Nº Compras &#x2195;</th>
+                        <th data-sort="avgVolume" style="cursor: pointer;">Volumen Medio/Compra &#x2195;</th>
+                        <th data-sort="firstPurchase" style="cursor: pointer;">Primera Compra &#x2195;</th>
+                        <th data-sort="lastPurchaseDate" style="cursor: pointer;">Última Compra &#x2195;</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${renderTableBody(clientData)}
+                </tbody>
+            </table>`;
+
+            const thead = container.querySelector('thead');
+            if (thead && !thead.dataset.listenerAttached) {
+                thead.dataset.listenerAttached = 'true';
+                thead.addEventListener('click', (e) => {
+                    const th = e.target.closest('th');
+                    if (!th || !th.dataset.sort) return;
+
+                    const sortKey = th.dataset.sort;
+                    const currentOrder = th.dataset.order;
+                    const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+
+                    thead.querySelectorAll('th').forEach(h => h.dataset.order = '');
+                    th.dataset.order = newOrder;
+
+                    const sortedClientData = [...clientData].sort((a, b) => {
+                        let valA, valB;
+                        if (sortKey === 'avgVolume') {
+                            valA = a.purchaseCount > 0 ? a.totalVolume / a.purchaseCount : 0;
+                            valB = b.purchaseCount > 0 ? b.totalVolume / b.purchaseCount : 0;
+                        } else if (sortKey === 'firstPurchase') {
+                            valA = clientFirstPurchaseDate[a.nif] || '';
+                            valB = clientFirstPurchaseDate[b.nif] || '';
+                        } else {
+                            valA = a[sortKey];
+                            valB = b[sortKey];
+                        }
+
+                        const modifier = newOrder === 'asc' ? 1 : -1;
+
+                        if (typeof valA === 'string') {
+                            return valA.localeCompare(valB) * modifier;
+                        }
+                        return (valA - valB) * modifier;
+                    });
+
+                    container.querySelector('tbody').innerHTML = renderTableBody(sortedClientData);
+                });
+            }
+        }
+
+        // Add event listener for tab shown event to re-render Plotly charts if needed
+        const formulasTab = document.getElementById('formulas-tab');
+        if (formulasTab) {
+            formulasTab.addEventListener('shown.bs.tab', () => {
+                // Only re-render if the chart exists (meaning it was rendered initially but might be mis-sized)
+                // and if the tab was previously hidden.
+                // A full re-render (purge + newPlot) is more robust for initial sizing issues in hidden tabs.
+                if (charts.salesByGrupoPlotly) {
+                    Plotly.purge(charts.salesByGrupoPlotly);
+                    renderSalesByGrupoChart(salesData); // Re-render with current filtered data
+                }
+                const cementoChartDiv = document.getElementById('cementoFormulaChart');
+                if (cementoChartDiv && typeof Plotly !== 'undefined') {
+                    Plotly.purge(cementoChartDiv);
+                    renderCementoFormulaChart(salesData); // Re-render with current filtered data
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
