@@ -19,19 +19,37 @@ self.onmessage = async (event: MessageEvent) => {
     if (!headersRaw) throw new Error('No headers found')
     const headers = headersRaw.map(h => h?.toString().trim() || '')
     
-    // Validación de columnas esenciales
+    // Validación exhaustiva de columnas requeridas por el Mapper y Lógica de Negocio
     const essentialColumns = [
-      'Nombre planta', 
-      'Número albarán', 
-      'Fecha Dosificación Albarán', 
-      'Volumen Facturar Albarán',
+      'Nombre planta',
+      'Número albarán',
+      'Fecha Dosificación Albarán',
       'Anulado',
-      'CabeceraNomenclaturaReducida'
+      'CabeceraNomenclaturaReducida',
+      'Resistencia Fórmula',
+      'Tamaño Fórmula',
+      'Consistencia Fórmula',
+      'Exposición General Fórmula',
+      'Exposición Especifica 1 Fórmula',
+      'Exposición Especifica 2 Fórmula',
+      'Exposición Especifica 3 Fórmula',
+      'NIF Cliente',
+      'Nombre cliente',
+      'Matricula Camión',
+      'Nombre Transportista',
+      'Volumen Facturar Albarán',
+      'Relación A/C Real Fórmula',
+      'Contenido Cemento Real Fórmula',
+      'Hora Salida Planta Albarán',
+      'Hora Llegada Obra Albarán',
+      'Hora Inicio Descarga Albarán',
+      'Hora Fin Descarga',
+      'Hora Limite Uso Albarán'
     ]
     const missingColumns = essentialColumns.filter(col => !headers.includes(col))
     
     if (missingColumns.length > 0) {
-      throw new Error(`Faltan columnas esenciales en el Excel: ${missingColumns.join(', ')}`)
+      throw new Error(`Error: El archivo no cumple el contrato de datos. Faltan las siguientes columnas: ${missingColumns.join(', ')}`)
     }
 
     const uniqueRowsMap = new Map<string, RawExcelSale>()
