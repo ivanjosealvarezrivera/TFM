@@ -5,10 +5,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import Plotly from 'plotly.js-dist-min'
+import type { Data, Layout } from 'plotly.js'
 
 const props = defineProps<{
-  data: any[]
-  layout: any
+  data: Data[]
+  layout: Partial<Layout>
 }>()
 
 const plotlyDiv = ref<HTMLElement | null>(null)

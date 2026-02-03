@@ -1,5 +1,8 @@
+import type { Sale } from '../../core/entities/Sale'
+import type { RawExcelSale } from '../types/ExcelRow'
+
 export class SalesMapper {
-  private static parseExcelDate(value: any): Date | null {
+  private static parseExcelDate(value: string | number | Date | undefined): Date | null {
     if (!value) return null;
     if (value instanceof Date) return value;
     
@@ -33,7 +36,7 @@ export class SalesMapper {
     return null;
   }
 
-  private static parseExcelDateTime(value: any): Date | null {
+  private static parseExcelDateTime(value: string | number | Date | undefined): Date | null {
     if (!value) return null;
     if (value instanceof Date) return value;
     if (typeof value === 'number') {
@@ -69,11 +72,19 @@ export class SalesMapper {
     return null;
   }
 
-  static cleanLicensePlate(plate: string): string {
+  static cleanLicensePlate(plate: string | number | undefined): string {
+    if (plate === undefined || plate === null) return '';
     return plate.toString().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   }
 
-  static mapRowToEntity(row: any): any {
+  private static parseExcelNumber(value: string | number | undefined): number {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === 'number') return value;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  static mapRowToEntity(row: RawExcelSale): Sale | null {
     const cabeceraNomenclaturaReducidaRaw = row['CabeceraNomenclaturaReducida'];
     const resistenciaFormula = row['Resistencia Fórmula'] || '';
     const planta = row['Nombre planta'] || '';
@@ -127,10 +138,10 @@ export class SalesMapper {
       nombreCliente: row['Nombre cliente'] || '',
       matricula: this.cleanLicensePlate(row['Matricula Camión'] || ''),
       nombreTransportista: row['Nombre Transportista'] || '',
-      fecha,
-      cantidad: parseFloat(row['Volumen Facturar Albarán']) || 0,
-      relacionACReal: parseFloat(row['Relación A/C Real Fórmula']) || 0,
-      contenidoCementoReal: parseFloat(row['Contenido Cemento Real Fórmula']) || 0,
+      fecha: fecha.toISOString().split('T')[0] || '',
+      cantidad: this.parseExcelNumber(row['Volumen Facturar Albarán']),
+      relacionACReal: this.parseExcelNumber(row['Relación A/C Real Fórmula']),
+      contenidoCementoReal: this.parseExcelNumber(row['Contenido Cemento Real Fórmula']),
       tiempoViaje,
       tiempoDescarga,
       descargaTardia

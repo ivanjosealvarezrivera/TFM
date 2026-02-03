@@ -30,7 +30,13 @@
 
     <div v-else-if="salesStore.rawSales.length > 0">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <KPICard title="Volumen Total" :value="salesStore.totalVolume.toLocaleString() + ' m³'" icon="pi pi-chart-bar" iconClass="text-brighter-green" />
+        <KPICard 
+          title="Volumen Total" 
+          :value="salesStore.totalVolume.toLocaleString() + ' m³'" 
+          icon="pi pi-chart-bar" 
+          iconClass="text-brighter-green"
+          :subtitle="salesStore.volumeVariation !== 0 ? `${salesStore.volumeVariation > 0 ? '+' : ''}${salesStore.volumeVariation.toFixed(1)}% vs mes anterior` : ''"
+        />
         <KPICard title="Ventas Filtradas" :value="salesStore.filteredSales.length" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
         <!-- Más KPIs según lógica MoM posterior -->
       </div>
@@ -73,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useSalesStore } from '../../application/useSalesStore'
 import { ExcelService } from '../../infrastructure/services/ExcelService'
 import type { ChartConfiguration } from 'chart.js'
@@ -111,20 +117,26 @@ const resetFilters = () => {
   salesStore.setFilters({ startDate: null, endDate: null })
 }
 
-// Chart Configurations (Simple versions for now)
+watch(dates, (newDates) => {
+  if (newDates && newDates.length === 2 && newDates[0] && newDates[1]) {
+    salesStore.setFilters({
+      startDate: newDates[0].toISOString().split('T')[0],
+      endDate: newDates[1].toISOString().split('T')[0]
+    })
+  } else if (!newDates) {
+    salesStore.setFilters({ startDate: null, endDate: null })
+  }
+})
+
+// Chart Configurations (Simplified using Store Getters)
 const plantaChartConfig = computed<ChartConfiguration>(() => {
-    const data = salesStore.filteredSales.reduce((acc: Record<string, number>, sale) => {
-        acc[sale.planta] = (acc[sale.planta] || 0) + sale.cantidad
-        return acc
-    }, {})
-    
     return {
-        type: 'bar' as const,
+        type: 'bar',
         data: {
-            labels: Object.keys(data),
+            labels: Object.keys(salesStore.volumeByPlanta),
             datasets: [{
                 label: 'm³',
-                data: Object.values(data),
+                data: Object.values(salesStore.volumeByPlanta),
                 backgroundColor: '#4B7F61'
             }]
         },
@@ -136,22 +148,13 @@ const plantaChartConfig = computed<ChartConfiguration>(() => {
 })
 
 const timeChartConfig = computed<ChartConfiguration>(() => {
-    // Simple grouping by date
-    const data: Record<string, number> = salesStore.filteredSales.reduce((acc: Record<string, number>, sale) => {
-        const d = sale.fecha.toISOString().split('T')[0] || 'unknown'
-        acc[d] = (acc[d] || 0) + sale.cantidad
-        return acc
-    }, {})
-    
-    const sortedKeys = Object.keys(data).sort()
-
     return {
-        type: 'line' as const,
+        type: 'line',
         data: {
-            labels: sortedKeys,
+            labels: salesStore.salesByDate.labels,
             datasets: [{
                 label: 'Ventas Diarias',
-                data: sortedKeys.map(k => (data as Record<string, number>)[k] ?? 0),
+                data: salesStore.salesByDate.values,
                 borderColor: '#004730',
                 tension: 0.1
             }]

@@ -11,7 +11,7 @@ export interface Sale {
   nombreCliente: string;
   matricula: string;
   nombreTransportista: string;
-  fecha: Date;
+  fecha: string; // ISO String (YYYY-MM-DD)
   cantidad: number;
   relacionACReal: number;
   contenidoCementoReal: number;
@@ -21,8 +21,8 @@ export interface Sale {
 }
 
 export interface SalesFilters {
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string | null;
+  endDate: string | null;
   fabrica: string | null;
   fabricaPrefix: string | null;
   grupo: string | null;
