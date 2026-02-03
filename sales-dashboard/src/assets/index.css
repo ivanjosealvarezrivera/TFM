@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  background-color: #F0F4F0;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Colores personalizados para Tailwind 4 si no se usan en tailwind.config.js */
+@theme {
+  --color-primary-green: #004730;
+  --color-darker-green: #1A664B;
+  --color-medium-dark-green: #4B7F61;
+  --color-pale-green: #8CC2A2;
+  --color-lighter-pale-green: #B7D4C0;
+  --color-light-greenish-bg: #F0F4F0;
+  --color-primary-red: #D42E12;
+  --color-brighter-green: #22C55E;
+}

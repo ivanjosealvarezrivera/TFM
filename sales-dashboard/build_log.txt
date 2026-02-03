@@ -1,0 +1,21 @@
+
+> sales-dashboard@0.0.0 build
+> vue-tsc -b && vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 2 modules transformed.
+Ô£ù Build failed in 260ms
+error during build:
+[vite]: Rollup failed to resolve import "@primevue/themes/aura" from "C:/IA/TFM/sales-dashboard/src/main.ts".
+This is most likely unintended because it can break your application at runtime.
+If you do want to externalize this module explicitly add it to
+`build.rollupOptions.external`
+    at viteLog (file:///C:/IA/TFM/sales-dashboard/node_modules/vite/dist/node/chunks/config.js:33635:57)
+    at onRollupLog (file:///C:/IA/TFM/sales-dashboard/node_modules/vite/dist/node/chunks/config.js:33665:7)
+    at onLog (file:///C:/IA/TFM/sales-dashboard/node_modules/vite/dist/node/chunks/config.js:33467:4)
+    at file:///C:/IA/TFM/sales-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:20958:32
+    at Object.logger [as onLog] (file:///C:/IA/TFM/sales-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:22945:9)
+    at ModuleLoader.handleInvalidResolvedId (file:///C:/IA/TFM/sales-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:21689:26)
+    at file:///C:/IA/TFM/sales-dashboard/node_modules/rollup/dist/es/shared/node-entry.js:21647:26
+    at async Promise.all (index 3)
