@@ -93,6 +93,9 @@ import TabPanel from 'primevue/tabpanel';
 import Button from 'primevue/button';
 import DatePicker from 'primevue/datepicker';
 import ProgressSpinner from 'primevue/progressspinner';
+import { useToast } from 'primevue/usetoast';
+
+const toast = useToast();
 
 const salesStore = useSalesStore()
 const dates = ref<Date[] | null>(null)
@@ -104,8 +107,20 @@ const handleFileUpload = async (event: Event) => {
     try {
       const sales = await ExcelService.processFile(input.files[0])
       salesStore.setSales(sales)
-    } catch (error) {
+      toast.add({ 
+        severity: 'success', 
+        summary: 'Éxito', 
+        detail: `Se han cargado ${sales.length} registros correctamente`, 
+        life: 3000 
+      });
+    } catch (error: any) {
       console.error(error)
+      toast.add({ 
+        severity: 'error', 
+        summary: 'Error de Carga', 
+        detail: error.message || 'Error desconocido al procesar el archivo', 
+        life: 5000 
+      });
     } finally {
       salesStore.isLoading = false
     }

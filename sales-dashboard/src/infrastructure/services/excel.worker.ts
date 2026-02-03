@@ -18,6 +18,22 @@ self.onmessage = async (event: MessageEvent) => {
     const headersRaw = jsonData[0]
     if (!headersRaw) throw new Error('No headers found')
     const headers = headersRaw.map(h => h?.toString().trim() || '')
+    
+    // Validación de columnas esenciales
+    const essentialColumns = [
+      'Nombre planta', 
+      'Número albarán', 
+      'Fecha Dosificación Albarán', 
+      'Volumen Facturar Albarán',
+      'Anulado',
+      'CabeceraNomenclaturaReducida'
+    ]
+    const missingColumns = essentialColumns.filter(col => !headers.includes(col))
+    
+    if (missingColumns.length > 0) {
+      throw new Error(`Faltan columnas esenciales en el Excel: ${missingColumns.join(', ')}`)
+    }
+
     const uniqueRowsMap = new Map<string, RawExcelSale>()
     
     for (let i = 1; i < jsonData.length; i++) {
