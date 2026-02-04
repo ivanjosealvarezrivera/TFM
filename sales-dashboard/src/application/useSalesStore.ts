@@ -322,6 +322,67 @@ export const useSalesStore = defineStore('sales', () => {
     return { matricula: entries[0]![0], volume: (entries[0]![1] as any).volume };
   })
 
+  const transportTreeMapData = computed(() => {
+    // Estructura: Map<Transportista, Map<Matricula, Volumen>>
+    const hierarchy: Record<string, Record<string, number>> = {};
+    const transporterVolumes: Record<string, number> = {};
+    
+    filteredSales.value.forEach(sale => {
+      if (!hierarchy[sale.nombreTransportista]) {
+        hierarchy[sale.nombreTransportista] = {};
+        transporterVolumes[sale.nombreTransportista] = 0;
+      }
+      if (hierarchy[sale.nombreTransportista]) {
+        hierarchy[sale.nombreTransportista]![sale.matricula] = (hierarchy[sale.nombreTransportista]![sale.matricula] || 0) + sale.cantidad;
+        transporterVolumes[sale.nombreTransportista] += sale.cantidad;
+      }
+    });
+
+    const labels: string[] = [];
+    const parents: string[] = [];
+    const values: number[] = [];
+    const text: string[] = [];
+
+    // Nodo Raíz (opcional, pero ayuda a la estructura)
+    // labels.push("Transporte Total");
+    // parents.push("");
+    // values.push(totalVolume.value);
+
+    // Añadir Transportistas
+    Object.entries(transporterVolumes).forEach(([transporter, volume]) => {
+      labels.push(transporter);
+      parents.push(""); // O "Transporte Total" si se usa raíz
+      values.push(volume);
+      text.push(`${volume.toLocaleString()} m³`);
+    });
+
+    // Añadir Matrículas bajo sus Transportistas
+    Object.entries(hierarchy).forEach(([transporter, trucks]) => {
+      Object.entries(trucks).forEach(([truck, volume]) => {
+        // Para evitar colisiones de IDs si una matrícula se repite en transportistas (raro pero posible)
+        const truckId = `${transporter} - ${truck}`;
+        labels.push(truckId);
+        parents.push(transporter);
+        values.push(volume);
+        text.push(`${truck}<br>${volume.toLocaleString()} m³`);
+      });
+    });
+
+    return [{
+      type: "treemap",
+      labels,
+      parents,
+      values,
+      text,
+      textinfo: "label+text",
+      marker: {
+        colorscale: 'Greens',
+        reversescale: true
+      },
+      hoverinfo: "label+value+percent parent"
+    }];
+  })
+
   // Lógica de Tabla Dinámica (Pivot: Fecha vs Planta)
   const pivotData = computed(() => {
     const plants = Object.keys(volumeByPlanta.value).sort()
@@ -405,6 +466,7 @@ export const useSalesStore = defineStore('sales', () => {
     volumeByMatricula,
     topTransportista,
     topTruck,
+    transportTreeMapData,
     pivotData,
     isLoading,
     setSales,

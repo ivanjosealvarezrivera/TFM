@@ -16,14 +16,39 @@ const plotlyDiv = ref<HTMLElement | null>(null)
 
 const renderPlotly = () => {
   if (plotlyDiv.value) {
-    Plotly.newPlot(plotlyDiv.value, props.data, props.layout, { responsive: true })
+    const layout = {
+      ...props.layout,
+      width: plotlyDiv.value.clientWidth,
+      height: plotlyDiv.value.clientHeight
+    }
+    
+    Plotly.react(plotlyDiv.value, props.data, layout, { 
+      responsive: true,
+      displayModeBar: false 
+    })
   }
 }
 
-onMounted(renderPlotly)
-onUnmounted(() => {
-  if (plotlyDiv.value) Plotly.purge(plotlyDiv.value)
+const handleResize = () => {
+  if (plotlyDiv.value) {
+    Plotly.Plots.resize(plotlyDiv.value)
+  }
+}
+
+onMounted(() => {
+  renderPlotly()
+  window.addEventListener('resize', handleResize)
+  
+  // Refuerzo pasados unos ms por si el layout de la página ha cambiado
+  setTimeout(handleResize, 500)
 })
 
-watch(() => [props.data, props.layout], renderPlotly, { deep: true })
+onUnmounted(() => {
+  if (plotlyDiv.value) Plotly.purge(plotlyDiv.value)
+  window.removeEventListener('resize', handleResize)
+})
+
+watch(() => [props.data, props.layout], () => {
+  renderPlotly()
+}, { deep: true })
 </script>

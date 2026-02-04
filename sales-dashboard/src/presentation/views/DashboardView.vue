@@ -152,7 +152,7 @@
               />
             </div>
 
-            <div class="grid grid-cols-1 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Gráfico de Transportistas -->
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Transportista</h3>
@@ -170,6 +170,17 @@
                   <div :style="{ height: matriculaChartHeight }">
                     <BaseChartJS :config="matriculaChartConfig" />
                   </div>
+                </div>
+              </div>
+
+              <!-- Treemap de Transporte -->
+              <div class="col-span-1 md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <h3 class="text-lg font-bold text-gray-700 m-6 mb-4">Distribución Jerárquica: Transportista > Matrícula</h3>
+                <div class="w-full h-[850px]">
+                  <BasePlotly 
+                    :data="(salesStore.transportTreeMapData as any)" 
+                    :layout="treemapLayout" 
+                  />
                 </div>
               </div>
             </div>
@@ -463,9 +474,11 @@ const matriculaChartHeight = computed(() => {
 })
 
 const treemapLayout = {
+  autosize: true,
   margin: { t: 0, l: 0, r: 0, b: 0 },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: 'Inter, sans-serif' }
 }
 
 const violinLayout = {
