@@ -328,14 +328,15 @@ export const useSalesStore = defineStore('sales', () => {
     const transporterVolumes: Record<string, number> = {};
     
     filteredSales.value.forEach(sale => {
-      if (!hierarchy[sale.nombreTransportista]) {
-        hierarchy[sale.nombreTransportista] = {};
-        transporterVolumes[sale.nombreTransportista] = 0;
+      const transporter = sale.nombreTransportista;
+      if (!hierarchy[transporter]) {
+        hierarchy[transporter] = {};
+        transporterVolumes[transporter] = 0;
       }
-      if (hierarchy[sale.nombreTransportista]) {
-        hierarchy[sale.nombreTransportista]![sale.matricula] = (hierarchy[sale.nombreTransportista]![sale.matricula] || 0) + sale.cantidad;
-        transporterVolumes[sale.nombreTransportista] += sale.cantidad;
-      }
+      
+      const transportHierarchy = hierarchy[transporter]!;
+      transportHierarchy[sale.matricula] = (transportHierarchy[sale.matricula] || 0) + sale.cantidad;
+      transporterVolumes[transporter] = (transporterVolumes[transporter] || 0) + sale.cantidad;
     });
 
     const labels: string[] = [];

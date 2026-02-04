@@ -7,24 +7,25 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import Plotly from 'plotly.js-dist-min'
 import type { Data, Layout } from 'plotly.js'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   data: Data[]
   layout: Partial<Layout>
-}>()
+  displayModeBar?: boolean
+}>(), {
+  displayModeBar: true
+})
 
 const plotlyDiv = ref<HTMLElement | null>(null)
 
+let resizeObserver: ResizeObserver | null = null
+
 const renderPlotly = () => {
   if (plotlyDiv.value) {
-    const layout = {
-      ...props.layout,
-      width: plotlyDiv.value.clientWidth,
-      height: plotlyDiv.value.clientHeight
-    }
-    
-    Plotly.react(plotlyDiv.value, props.data, layout, { 
+    // No pasamos width/height explícitos para dejar que responsive: true 
+    // y el contenedor CSS gestionen el tamaño correctamente.
+    Plotly.react(plotlyDiv.value, props.data, props.layout, { 
       responsive: true,
-      displayModeBar: false 
+      displayModeBar: props.displayModeBar 
     })
   }
 }
@@ -37,15 +38,25 @@ const handleResize = () => {
 
 onMounted(() => {
   renderPlotly()
-  window.addEventListener('resize', handleResize)
   
-  // Refuerzo pasados unos ms por si el layout de la página ha cambiado
-  setTimeout(handleResize, 500)
+  // Usamos ResizeObserver para detectar cambios en el elemento mismo,
+  // no solo en la ventana global del navegador.
+  if (plotlyDiv.value) {
+    resizeObserver = new ResizeObserver(() => {
+      handleResize()
+    })
+    resizeObserver.observe(plotlyDiv.value)
+  }
+  
+  window.addEventListener('resize', handleResize)
 })
 
 onUnmounted(() => {
-  if (plotlyDiv.value) Plotly.purge(plotlyDiv.value)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
   window.removeEventListener('resize', handleResize)
+  if (plotlyDiv.value) Plotly.purge(plotlyDiv.value)
 })
 
 watch(() => [props.data, props.layout], () => {

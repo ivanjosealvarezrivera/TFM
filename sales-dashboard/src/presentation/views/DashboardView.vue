@@ -475,7 +475,7 @@ const matriculaChartHeight = computed(() => {
 
 const treemapLayout = {
   autosize: true,
-  margin: { t: 0, l: 0, r: 0, b: 0 },
+  margin: { t: 15, l: 15, r: 15, b: 15 },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { family: 'Inter, sans-serif' }
