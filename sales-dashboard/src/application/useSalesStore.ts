@@ -175,6 +175,87 @@ export const useSalesStore = defineStore('sales', () => {
     return values.reduce((a, b) => a + b, 0) / values.length
   })
 
+  // --- Análisis de Fórmulas ---
+  
+  const uniqueNomenclaturesCount = computed(() => {
+    const nomenclatures = new Set(filteredSales.value.map(s => s.nomenclatura))
+    return nomenclatures.size
+  })
+
+  const averageCementContent = computed(() => {
+    if (filteredSales.value.length === 0) return 0
+    const totalCement = filteredSales.value.reduce((acc, s) => acc + (s.contenidoCementoReal || 0), 0)
+    return totalCement / filteredSales.value.length
+  })
+
+  const formulaTreemapData = computed(() => {
+    const data: Record<string, { volume: number; labels: Set<string> }> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.nomenclatura]) {
+        data[sale.nomenclatura] = { volume: 0, labels: new Set() };
+      }
+      const entry = data[sale.nomenclatura]!;
+      entry.volume += sale.cantidad;
+      // El grupo contiene la resistencia (ej: HA-25)
+      const resistance = sale.grupo.split('-').slice(1).join('-') || 'ND';
+      entry.labels.add(resistance);
+    })
+
+    const labels: string[] = []
+    const parents: string[] = []
+    const values: number[] = []
+    const text: string[] = []
+
+    const totalFilteredVolume = totalVolume.value
+
+    Object.entries(data).forEach(([nom, info]) => {
+      labels.push(nom)
+      parents.push("")
+      values.push(info.volume)
+      const percentage = totalFilteredVolume > 0 ? ((info.volume / totalFilteredVolume) * 100).toFixed(0) : 0
+      text.push(`${info.volume.toLocaleString()} m³<br>${percentage}%`)
+    })
+
+    return [{
+      type: "treemap",
+      labels,
+      parents,
+      values,
+      text,
+      textinfo: "label+text",
+      marker: {
+        colorscale: 'Greens',
+        reversescale: true
+      },
+      hoverinfo: "label+value+percent parent"
+    }]
+  })
+
+  const formulaViolinData = computed(() => {
+    // Agrupar por nomenclatura para el gráfico de violín/puntos
+    const groups: Record<string, number[]> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!groups[sale.nomenclatura]) {
+        groups[sale.nomenclatura] = [];
+      }
+      groups[sale.nomenclatura]!.push(sale.contenidoCementoReal);
+    })
+
+    return Object.entries(groups).map(([nom, values]) => ({
+      type: 'violin',
+      y: values,
+      name: nom,
+      box: { visible: true },
+      meanline: { visible: true },
+      points: 'all',
+      jitter: 0.5,
+      marker: { size: 2, color: '#1A664B' },
+      line: { color: '#004730' }
+    }))
+  })
+
   // Lógica de Tabla Dinámica (Pivot: Fecha vs Planta)
   const pivotData = computed(() => {
     const plants = Object.keys(volumeByPlanta.value).sort()
@@ -250,6 +331,10 @@ export const useSalesStore = defineStore('sales', () => {
     averageVolumeByPlanta,
     averageSalesByDay,
     averageSalesByMonth,
+    uniqueNomenclaturesCount,
+    averageCementContent,
+    formulaTreemapData,
+    formulaViolinData,
     pivotData,
     isLoading,
     setSales,

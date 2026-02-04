@@ -57,9 +57,10 @@
       <Tabs value="0">
         <TabList>
           <Tab value="0">Análisis de Ventas</Tab>
-          <Tab value="1">Transporte</Tab>
-          <Tab value="2">Clientes</Tab>
-          <Tab value="3">Análisis Técnico</Tab>
+          <Tab value="1">Análisis de Fórmulas</Tab>
+          <Tab value="2">Transporte</Tab>
+          <Tab value="3">Clientes</Tab>
+          <Tab value="4">Análisis Técnico</Tab>
         </TabList>
         <TabPanels>
           <TabPanel value="0">
@@ -97,10 +98,46 @@
               <PivotSalesTable :data="salesStore.pivotData" />
             </div>
           </TabPanel>
+
           <TabPanel value="1">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-8">
+              <KPICard 
+                title="Nomenclaturas Únicas" 
+                :value="salesStore.uniqueNomenclaturesCount" 
+                icon="pi pi-tag" 
+                iconClass="text-primary-green" 
+              />
+              <KPICard 
+                title="Medio Cemento" 
+                :value="salesStore.averageCementContent.toFixed(1) + ' kg/m³'" 
+                icon="pi pi-filter" 
+                iconClass="text-darker-green" 
+              />
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Nomenclatura y Resistencia</h3>
+                <p class="text-sm text-gray-500 mb-4">Distribución del volumen por tipo de producto. Haga clic para filtrar.</p>
+                <div class="h-[500px]">
+                  <BasePlotly :data="(salesStore.formulaTreemapData as any)" :layout="treemapLayout" />
+                </div>
+              </div>
+              
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Contenido Cemento Real por Nomenclatura</h3>
+                <p class="text-sm text-gray-500 mb-4">Distribución del contenido de cemento real para cada nomenclatura.</p>
+                <div class="h-[500px]">
+                  <BasePlotly :data="(salesStore.formulaViolinData as any)" :layout="violinLayout" />
+                </div>
+              </div>
+            </div>
+          </TabPanel>
+
+          <TabPanel value="2">
             <!-- Transporte Tab Content -->
           </TabPanel>
-          <TabPanel value="2">
+          <TabPanel value="3">
             <!-- Clientes Tab Content -->
           </TabPanel>
         </TabPanels>
@@ -121,6 +158,7 @@ import { ExcelService } from '../../infrastructure/services/ExcelService'
 import type { ChartConfiguration } from 'chart.js'
 import KPICard from '../components/KPICard.vue'
 import BaseChartJS from '../components/BaseChartJS.vue'
+import BasePlotly from '../components/BasePlotly.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
@@ -290,14 +328,28 @@ const communityChartConfig = computed<ChartConfiguration>(() => {
                   '#B7D4C0'
                 ]
             }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'top' }
-            }
         }
     }
 })
+
+const treemapLayout = {
+  margin: { t: 0, l: 0, r: 0, b: 0 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+}
+
+const violinLayout = {
+  margin: { t: 30, l: 60, r: 30, b: 80 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  yaxis: {
+    title: { text: 'Cemento (kg/m³)' },
+    zeroline: false,
+    gridcolor: '#f0f0f0'
+  },
+  xaxis: {
+    tickangle: 45
+  },
+  showlegend: false
+}
 </script>
