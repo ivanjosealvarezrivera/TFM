@@ -58,7 +58,7 @@
         <TabList>
           <Tab value="0">Análisis de Ventas</Tab>
           <Tab value="1">Análisis de Fórmulas</Tab>
-          <Tab value="2">Transporte</Tab>
+          <Tab value="2">Análisis de Transporte</Tab>
           <Tab value="3">Clientes</Tab>
           <Tab value="4">Análisis Técnico</Tab>
         </TabList>
@@ -135,7 +135,44 @@
           </TabPanel>
 
           <TabPanel value="2">
-            <!-- Transporte Tab Content -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-8">
+              <KPICard 
+                title="Top Transportista" 
+                :value="salesStore.topTransportista ? salesStore.topTransportista.name : '---'" 
+                icon="pi pi-truck" 
+                iconClass="text-medium-dark-green" 
+                :subtitle="salesStore.topTransportista ? salesStore.topTransportista.volume.toLocaleString() + ' m³' : ''"
+              />
+              <KPICard 
+                title="Top Camión" 
+                :value="salesStore.topTruck ? salesStore.topTruck.matricula : '---'" 
+                icon="pi pi-id-card" 
+                iconClass="text-pale-green" 
+                :subtitle="salesStore.topTruck ? salesStore.topTruck.volume.toLocaleString() + ' m³' : ''"
+              />
+            </div>
+
+            <div class="grid grid-cols-1 gap-6">
+              <!-- Gráfico de Transportistas -->
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Transportista</h3>
+                <div class="overflow-y-auto max-h-[600px] border border-gray-50 rounded-xl">
+                  <div :style="{ height: transportistaChartHeight }">
+                    <BaseChartJS :config="transportistaChartConfig" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gráfico de Matrículas -->
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Matrícula</h3>
+                <div class="overflow-y-auto max-h-[600px] border border-gray-50 rounded-xl">
+                  <div :style="{ height: matriculaChartHeight }">
+                    <BaseChartJS :config="matriculaChartConfig" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </TabPanel>
           <TabPanel value="3">
             <!-- Clientes Tab Content -->
@@ -330,6 +367,99 @@ const communityChartConfig = computed<ChartConfiguration>(() => {
             }]
         }
     }
+})
+
+const transportistaChartConfig = computed<ChartConfiguration>(() => {
+    const data = salesStore.volumeByTransportista;
+    return {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                label: 'm³ Facturados',
+                data: Object.values(data).map((v: any) => v.volume),
+                backgroundColor: '#1A664B',
+                barThickness: 12
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const label = context.dataset.label || '';
+                            const value = (context.parsed?.x ?? 0) as number;
+                            const stats = data[context.label] as any;
+                            if (stats) {
+                                return [
+                                    `${label}: ${value.toLocaleString()} m³`,
+                                    `Viajes: ${stats.trips}`,
+                                    `Media/Viaje: ${stats.avgVolume.toFixed(2)} m³`,
+                                    `Matrículas: ${stats.uniqueTrucks}`
+                                ];
+                            }
+                            return `${label}: ${value.toLocaleString()} m³`;
+                        }
+                    }
+                }
+            }
+        }
+    }
+})
+
+const matriculaChartConfig = computed<ChartConfiguration>(() => {
+    const data = salesStore.volumeByMatricula;
+    return {
+        type: 'bar',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                label: 'm³ Facturados',
+                data: Object.values(data).map((v: any) => v.volume),
+                backgroundColor: '#4B7F61',
+                barThickness: 12
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const label = context.dataset.label || '';
+                            const value = (context.parsed?.x ?? 0) as number;
+                            const stats = data[context.label] as any;
+                            if (stats) {
+                                return [
+                                    `${label}: ${value.toLocaleString()} m³`,
+                                    `Viajes: ${stats.trips}`,
+                                    `Media/Viaje: ${stats.avgVolume.toFixed(2)} m³`
+                                ];
+                            }
+                            return `${label}: ${value.toLocaleString()} m³`;
+                        }
+                    }
+                }
+            }
+        }
+    }
+})
+
+const transportistaChartHeight = computed(() => {
+    const count = Object.keys(salesStore.volumeByTransportista).length;
+    return `${Math.max(400, count * 20)}px`;
+})
+
+const matriculaChartHeight = computed(() => {
+    const count = Object.keys(salesStore.volumeByMatricula).length;
+    return `${Math.max(400, count * 20)}px`;
 })
 
 const treemapLayout = {

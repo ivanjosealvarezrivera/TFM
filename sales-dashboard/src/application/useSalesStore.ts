@@ -256,6 +256,72 @@ export const useSalesStore = defineStore('sales', () => {
     }))
   })
 
+  // --- Análisis de Transporte ---
+
+  const volumeByTransportista = computed(() => {
+    const data: Record<string, { volume: number; trips: number; trucks: Set<string> }> = {};
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.nombreTransportista]) {
+        data[sale.nombreTransportista] = { volume: 0, trips: 0, trucks: new Set() };
+      }
+      const entry = data[sale.nombreTransportista]!;
+      entry.volume += sale.cantidad;
+      entry.trips += 1;
+      entry.trucks.add(sale.matricula);
+    });
+    
+    // Devolver ordenado de mayor a menor con estadísticas calculadas
+    return Object.entries(data)
+      .sort(([, a], [, b]) => b.volume - a.volume)
+      .reduce((acc: Record<string, any>, [k, v]) => {
+        acc[k] = {
+          volume: v.volume,
+          trips: v.trips,
+          avgVolume: v.volume / v.trips,
+          uniqueTrucks: v.trucks.size
+        };
+        return acc;
+      }, {});
+  })
+
+  const volumeByMatricula = computed(() => {
+    const data: Record<string, { volume: number; trips: number }> = {};
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.matricula]) {
+        data[sale.matricula] = { volume: 0, trips: 0 };
+      }
+      const entry = data[sale.matricula]!;
+      entry.volume += sale.cantidad;
+      entry.trips += 1;
+    });
+    
+    // Devolver ordenado de mayor a menor
+    return Object.entries(data)
+      .sort(([, a], [, b]) => b.volume - a.volume)
+      .reduce((acc: Record<string, any>, [k, v]) => {
+        acc[k] = {
+          volume: v.volume,
+          trips: v.trips,
+          avgVolume: v.volume / v.trips
+        };
+        return acc;
+      }, {});
+  })
+
+  const topTransportista = computed(() => {
+    const entries = Object.entries(volumeByTransportista.value);
+    if (entries.length === 0) return null;
+    return { name: entries[0]![0], volume: (entries[0]![1] as any).volume };
+  })
+
+  const topTruck = computed(() => {
+    const entries = Object.entries(volumeByMatricula.value);
+    if (entries.length === 0) return null;
+    return { matricula: entries[0]![0], volume: (entries[0]![1] as any).volume };
+  })
+
   // Lógica de Tabla Dinámica (Pivot: Fecha vs Planta)
   const pivotData = computed(() => {
     const plants = Object.keys(volumeByPlanta.value).sort()
@@ -335,6 +401,10 @@ export const useSalesStore = defineStore('sales', () => {
     averageCementContent,
     formulaTreemapData,
     formulaViolinData,
+    volumeByTransportista,
+    volumeByMatricula,
+    topTransportista,
+    topTruck,
     pivotData,
     isLoading,
     setSales,

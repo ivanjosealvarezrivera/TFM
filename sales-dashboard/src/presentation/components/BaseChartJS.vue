@@ -1,5 +1,5 @@
 <template>
-  <div class="relative w-full h-[400px]">
+  <div class="relative w-full h-full">
     <canvas ref="chartCanvas"></canvas>
   </div>
 </template>
