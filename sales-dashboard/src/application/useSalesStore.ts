@@ -323,6 +323,12 @@ export const useSalesStore = defineStore('sales', () => {
   })
 
   const transportTreeMapData = computed(() => {
+    // Paleta de colores categórica para transportistas
+    const colorPalette = [
+      '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', 
+      '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'
+    ];
+
     // Estructura: Map<Transportista, Map<Matricula, Volumen>>
     const hierarchy: Record<string, Record<string, number>> = {};
     const transporterVolumes: Record<string, number> = {};
@@ -343,29 +349,40 @@ export const useSalesStore = defineStore('sales', () => {
     const parents: string[] = [];
     const values: number[] = [];
     const text: string[] = [];
+    const colors: string[] = [];
 
-    // Nodo Raíz (opcional, pero ayuda a la estructura)
-    // labels.push("Transporte Total");
-    // parents.push("");
-    // values.push(totalVolume.value);
+    // Nodo Raíz invisible para agrupar todo
+    const rootLabel = "Transportistas";
+    labels.push(rootLabel);
+    parents.push("");
+    values.push(totalVolume.value);
+    text.push("");
+    colors.push('rgba(0,0,0,0)');
 
     // Añadir Transportistas
-    Object.entries(transporterVolumes).forEach(([transporter, volume]) => {
+    Object.entries(transporterVolumes).forEach(([transporter, volume], index) => {
       labels.push(transporter);
-      parents.push(""); // O "Transporte Total" si se usa raíz
+      parents.push(rootLabel);
       values.push(volume);
-      text.push(`${volume.toLocaleString()} m³`);
+      text.push(`<b>${transporter}</b><br>${volume.toLocaleString()} m³`);
+      // Asignar color de la paleta
+      colors.push(colorPalette[index % colorPalette.length] || '#888');
     });
 
     // Añadir Matrículas bajo sus Transportistas
-    Object.entries(hierarchy).forEach(([transporter, trucks]) => {
+    Object.entries(hierarchy).forEach(([transporter, trucks], tIndex) => {
+      const parentColor = colorPalette[tIndex % colorPalette.length] || '#888';
       Object.entries(trucks).forEach(([truck, volume]) => {
-        // Para evitar colisiones de IDs si una matrícula se repite en transportistas (raro pero posible)
+        // ID único para evitar colisiones
         const truckId = `${transporter} - ${truck}`;
         labels.push(truckId);
         parents.push(transporter);
         values.push(volume);
+        // Texto más limpio para matrículas
         text.push(`${truck}<br>${volume.toLocaleString()} m³`);
+        // Las matrículas heredan el color del padre pero con cierta opacidad o ligero ajuste si se desea
+        // En Plotly, si no se especifica color por nodo, los hijos pueden heredar o comportarse según la escala
+        colors.push(parentColor);
       });
     });
 
@@ -376,11 +393,15 @@ export const useSalesStore = defineStore('sales', () => {
       values,
       text,
       textinfo: "label+text",
+      hoverinfo: "label+value+percent parent",
+      branchvalues: "total",
       marker: {
-        colorscale: 'Greens',
-        reversescale: true
+        colors: colors,
+        line: { width: 2, color: 'white' },
+        pad: { b: 5, l: 5, r: 5, t: 25 }
       },
-      hoverinfo: "label+value+percent parent"
+      pathbar: { visible: true, thickness: 30, textfont: { size: 14 } },
+      tiling: { packing: 'squarify', pad: 4 }
     }];
   })
 
