@@ -430,24 +430,7 @@ const monthChartConfig = computed<ChartConfiguration>(() => {
     }
 })
 
-const communityChartConfig = computed<ChartConfiguration>(() => {
-    return {
-        type: 'polarArea',
-        data: {
-            labels: Object.keys(salesStore.volumeByCommunity),
-            datasets: [{
-                data: Object.values(salesStore.volumeByCommunity),
-                backgroundColor: [
-                  '#004730', 
-                  '#1A664B', 
-                  '#4B7F61', 
-                  '#8CC2A2', 
-                  '#B7D4C0'
-                ]
-            }]
-        }
-    }
-})
+
 
 const transportistaChartConfig = computed<ChartConfiguration>(() => {
     const data = salesStore.volumeByTransportista;
