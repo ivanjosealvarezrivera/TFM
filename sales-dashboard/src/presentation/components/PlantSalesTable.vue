@@ -33,7 +33,7 @@
       
       <Column field="frequency" header="Nº Albaranes" sortable class="text-center">
         <template #body="{ data }">
-          <Tag :value="data.frequency" severity="success" rounded />
+          <Tag :value="data.frequency" severity="success" rounded class="font-black text-emerald-950" />
         </template>
       </Column>
       
@@ -119,7 +119,12 @@ const formatDate = (dateStr: string) => {
   background-color: #f0fdf4 !important;
 }
 
-/* Paginador */
+.custom-table :deep(.p-tag-success) {
+  background-color: #dcfce7 !important;
+  color: #064e3b !important;
+  font-weight: 900 !important;
+}
+
 .custom-table :deep(.p-paginator) {
   background-color: #ffffff !important;
   border-top: 1px solid #f1f5f9;

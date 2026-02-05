@@ -566,11 +566,13 @@ export const useSalesStore = defineStore('sales', () => {
           comunidad: sale.comunidad
         }
       }
-      const info = data[sale.planta]!
-      info.volume += sale.cantidad
-      info.count += 1
-      if (sale.fecha < info.firstDate) info.firstDate = sale.fecha
-      if (sale.fecha > info.lastDate) info.lastDate = sale.fecha
+      const info = data[sale.planta]
+      if (info) {
+        info.volume += sale.cantidad
+        info.count += 1
+        if (sale.fecha < info.firstDate) info.firstDate = sale.fecha
+        if (sale.fecha > info.lastDate) info.lastDate = sale.fecha
+      }
     })
 
     return Object.entries(data).map(([name, info]) => ({
@@ -601,8 +603,10 @@ export const useSalesStore = defineStore('sales', () => {
       if (!data[weekLabel]) {
         data[weekLabel] = [0, 0, 0, 0, 0, 0, 0]
       }
-      const weekArray = data[weekLabel]!
-      weekArray[day] += sale.cantidad
+      const weekArray = data[weekLabel]
+      if (weekArray && day !== undefined) {
+        weekArray[day] = (weekArray[day] ?? 0) + sale.cantidad
+      }
     })
 
     // Ordenar semanas cronológicamente

@@ -186,7 +186,7 @@
                 <div class="w-full h-[850px]">
                   <BasePlotly 
                     :data="(salesStore.transportTreeMapData as any)" 
-                    :layout="treemapLayout" 
+                    :layout="(treemapLayout as any)" 
                   />
                 </div>
               </div>
@@ -228,7 +228,7 @@
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Concentración de Cartera (Top 10 vs Otros)</h3>
                 <p class="text-sm text-gray-500 mb-6">Visualice la dependencia de los clientes principales frente al resto de la cartera.</p>
                 <div class="h-[500px]">
-                  <BasePlotly :data="(concentrationChartData as any)" :layout="concentrationLayout" />
+                  <BasePlotly :data="(concentrationChartData as any)" :layout="(concentrationLayout as any)" />
                 </div>
               </div>
 
@@ -236,7 +236,7 @@
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Matriz de Fidelización (Frecuencia vs Volumen)</h3>
                 <p class="text-sm text-gray-500 mb-6">Clasificación por hábito de compra. El tamaño de la burbuja es el promedio m³/pedido.</p>
                 <div class="h-[500px]">
-                  <BasePlotly :data="(bubbleChartData as any)" :layout="bubbleLayout" />
+                  <BasePlotly :data="(bubbleChartData as any)" :layout="(bubbleLayout as any)" />
                 </div>
               </div>
             </div>
@@ -276,7 +276,6 @@ import KPICard from '../components/KPICard.vue';
 import CustomerSalesTable from '../components/CustomerSalesTable.vue';
 import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
-import PlantSalesTable from '../components/PlantSalesTable.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
@@ -543,7 +542,6 @@ const matriculaChartHeight = computed(() => {
     return `${Math.max(400, count * 20)}px`;
 })
 
-const paretoChartData = undefined; // Deleted
 
 const concentrationChartData = computed(() => {
   const data = salesStore.concentrationData;
@@ -567,7 +565,7 @@ const concentrationLayout = {
   autosize: true,
   margin: { t: 40, l: 20, r: 20, b: 40 },
   showlegend: true,
-  legend: { orientation: 'h', y: -0.1, x: 0.5, xanchor: 'center' },
+  legend: { orientation: 'h' as any, y: -0.1, x: 0.5, xanchor: 'center' as any },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { family: 'Inter, sans-serif' }
