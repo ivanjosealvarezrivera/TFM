@@ -59,7 +59,7 @@
           <Tab value="0">Análisis de Ventas</Tab>
           <Tab value="1">Análisis de Fórmulas</Tab>
           <Tab value="2">Análisis de Transporte</Tab>
-          <Tab value="3">Clientes</Tab>
+          <Tab value="3">Análisis de Clientes</Tab>
           <Tab value="4">Análisis Técnico</Tab>
         </TabList>
         <TabPanels>
@@ -186,7 +186,58 @@
             </div>
           </TabPanel>
           <TabPanel value="3">
-            <!-- Clientes Tab Content -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 mb-8">
+              <KPICard 
+                title="Clientes Únicos" 
+                :value="salesStore.uniqueClientsCount" 
+                icon="pi pi-users" 
+                iconClass="text-primary-green" 
+              />
+              <KPICard 
+                title="Volumen Top 1 Cliente" 
+                :value="salesStore.topClient.volume.toLocaleString() + ' m³'" 
+                icon="pi pi-star-fill" 
+                iconClass="text-medium-dark-green" 
+                :subtitle="salesStore.topClient.name"
+              />
+              <KPICard 
+                title="Volumen Top 3 Clientes" 
+                :value="salesStore.top3ClientsInfo.volume.toLocaleString() + ' m³'" 
+                icon="pi pi-chart-line" 
+                iconClass="text-pale-green" 
+                :subtitle="salesStore.top3ClientsInfo.names"
+              />
+              <KPICard 
+                title="Volumen Top 10 Clientes" 
+                :value="salesStore.top10ClientsInfo.volume.toLocaleString() + ' m³'" 
+                icon="pi pi-list" 
+                iconClass="text-darker-green" 
+                :subtitle="salesStore.top10ClientsInfo.names"
+              />
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Concentración de Cartera (Top 10 vs Otros)</h3>
+                <p class="text-sm text-gray-500 mb-6">Visualice la dependencia de los clientes principales frente al resto de la cartera.</p>
+                <div class="h-[500px]">
+                  <BasePlotly :data="(concentrationChartData as any)" :layout="concentrationLayout" />
+                </div>
+              </div>
+
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Matriz de Fidelización (Frecuencia vs Volumen)</h3>
+                <p class="text-sm text-gray-500 mb-6">Clasificación por hábito de compra. El tamaño de la burbuja es el promedio m³/pedido.</p>
+                <div class="h-[500px]">
+                  <BasePlotly :data="(bubbleChartData as any)" :layout="bubbleLayout" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabla de Detalle -->
+            <div class="mt-8">
+              <CustomerSalesTable :data="salesStore.customerLoyaltyData" />
+            </div>
           </TabPanel>
         </TabPanels>
       </Tabs>
@@ -204,7 +255,8 @@ import { ref, computed, watch } from 'vue'
 import { useSalesStore } from '../../application/useSalesStore'
 import { ExcelService } from '../../infrastructure/services/ExcelService'
 import type { ChartConfiguration } from 'chart.js'
-import KPICard from '../components/KPICard.vue'
+import KPICard from '../components/KPICard.vue';
+import CustomerSalesTable from '../components/CustomerSalesTable.vue';
 import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
@@ -472,6 +524,79 @@ const matriculaChartHeight = computed(() => {
     const count = Object.keys(salesStore.volumeByMatricula).length;
     return `${Math.max(400, count * 20)}px`;
 })
+
+const paretoChartData = undefined; // Deleted
+
+const concentrationChartData = computed(() => {
+  const data = salesStore.concentrationData;
+  return [
+    {
+      labels: data.labels,
+      values: data.values,
+      type: 'pie',
+      hole: 0.5,
+      marker: {
+        colors: ['#004730', '#B7D4C0']
+      },
+      textinfo: 'label+percent',
+      hoverinfo: 'label+value+percent',
+      insidetextorientation: 'radial'
+    }
+  ];
+});
+
+const concentrationLayout = {
+  autosize: true,
+  margin: { t: 40, l: 20, r: 20, b: 40 },
+  showlegend: true,
+  legend: { orientation: 'h', y: -0.1, x: 0.5, xanchor: 'center' },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: 'Inter, sans-serif' }
+}
+
+const bubbleChartData = computed(() => {
+  const data = salesStore.customerLoyaltyData;
+  return [
+    {
+      x: data.map(d => d.frequency),
+      y: data.map(d => d.volume),
+      text: data.map(d => `<b>${d.name}</b><br>Pedidos: ${d.frequency}<br>Volumen: ${d.volume.toLocaleString()} m³<br>Media: ${d.average.toFixed(2)} m³/pedido`),
+      mode: 'markers',
+      marker: {
+        size: data.map(d => d.average),
+        sizemode: 'area',
+        sizeref: 2.0 * Math.max(...data.map(d => d.average)) / (40 ** 2),
+        sizemin: 4,
+        color: data.map(d => d.volume),
+        colorscale: 'Viridis',
+        showscale: true,
+        reversescale: true,
+        opacity: 0.7,
+        line: { width: 1, color: '#fff' }
+      }
+    }
+  ];
+});
+
+const bubbleLayout = {
+  autosize: true,
+  margin: { t: 40, l: 60, r: 20, b: 60 },
+  hovermode: 'closest' as any,
+  xaxis: {
+    title: { text: 'Frecuencia (Número de Pedidos)' },
+    gridcolor: '#f0f0f0',
+    zeroline: false
+  },
+  yaxis: {
+    title: { text: 'Volumen Total (m³)' },
+    gridcolor: '#f0f0f0',
+    zeroline: false
+  },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(249, 250, 251, 0.5)',
+  font: { family: 'Inter, sans-serif' }
+}
 
 const treemapLayout = {
   autosize: true,

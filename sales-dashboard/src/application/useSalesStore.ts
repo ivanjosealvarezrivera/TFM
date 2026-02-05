@@ -456,6 +456,97 @@ export const useSalesStore = defineStore('sales', () => {
     }
   })
 
+  // --- Análisis de Clientes ---
+
+  const uniqueClientsCount = computed(() => {
+    return new Set(filteredSales.value.map(s => s.cliente)).size
+  })
+
+  const volumeByCustomer = computed(() => {
+    const data: Record<string, { volume: number; name: string }> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.cliente]) {
+        data[sale.cliente] = { volume: 0, name: sale.nombreCliente }
+      }
+      data[sale.cliente]!.volume += sale.cantidad
+    })
+
+    return Object.entries(data)
+      .sort(([, a], [, b]) => b.volume - a.volume)
+  })
+
+  const topClient = computed(() => {
+    const sorted = volumeByCustomer.value
+    if (sorted.length === 0) return { nif: '', name: '', volume: 0 }
+    return { 
+      nif: sorted[0]![0], 
+      name: sorted[0]![1].name, 
+      volume: sorted[0]![1].volume 
+    }
+  })
+
+  const top3ClientsInfo = computed(() => {
+    const top3 = volumeByCustomer.value.slice(0, 3)
+    return {
+      volume: top3.reduce((acc, [, info]) => acc + info.volume, 0),
+      names: top3.map(([, info]) => info.name).join('\n')
+    }
+  })
+
+  const top10ClientsInfo = computed(() => {
+    const top10 = volumeByCustomer.value.slice(0, 10)
+    return {
+      volume: top10.reduce((acc, [, info]) => acc + info.volume, 0),
+      names: top10.map(([, info]) => info.name).join('\n'),
+      count: top10.length
+    }
+  })
+
+  const concentrationData = computed(() => {
+    const sorted = volumeByCustomer.value
+    const top10Vol = sorted.slice(0, 10).reduce((acc, [, info]) => acc + info.volume, 0)
+    const totalVol = totalVolume.value
+    const othersVol = Math.max(0, totalVol - top10Vol)
+
+    return {
+      labels: ['Top 10 Clientes', 'Resto de Cartera'],
+      values: [top10Vol, othersVol]
+    }
+  })
+
+  const customerLoyaltyData = computed(() => {
+    const data: Record<string, { volume: number; trips: number; name: string; firstDate: string; lastDate: string }> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.cliente]) {
+        data[sale.cliente] = { 
+          volume: 0, 
+          trips: 0, 
+          name: sale.nombreCliente,
+          firstDate: sale.fecha,
+          lastDate: sale.fecha
+        }
+      }
+      const entry = data[sale.cliente]!
+      entry.volume += sale.cantidad
+      entry.trips += 1
+      
+      if (sale.fecha < entry.firstDate) entry.firstDate = sale.fecha
+      if (sale.fecha > entry.lastDate) entry.lastDate = sale.fecha
+    })
+
+    return Object.entries(data).map(([nif, info]) => ({
+      nif,
+      name: info.name,
+      volume: info.volume,
+      frequency: info.trips,
+      average: info.volume / info.trips,
+      firstPurchase: info.firstDate,
+      lastPurchase: info.lastDate
+    }))
+  })
+
   function setSales(sales: Sale[]) {
     rawSales.value = sales
   }
@@ -489,6 +580,13 @@ export const useSalesStore = defineStore('sales', () => {
     topTransportista,
     topTruck,
     transportTreeMapData,
+    uniqueClientsCount,
+    volumeByCustomer,
+    topClient,
+    top3ClientsInfo,
+    top10ClientsInfo,
+    concentrationData,
+    customerLoyaltyData,
     pivotData,
     isLoading,
     setSales,

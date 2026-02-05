@@ -7,7 +7,7 @@
     </div>
     <div class="text-3xl font-bold text-primary-green">{{ value }}</div>
     <div class="text-sm font-medium text-gray-500 uppercase tracking-wider">{{ title }}</div>
-    <div v-if="subtitle" class="text-xs text-gray-400 mt-1">{{ subtitle }}</div>
+    <div v-if="subtitle" class="text-xs text-gray-400 mt-1 whitespace-pre-line">{{ subtitle }}</div>
   </div>
 </template>
 
