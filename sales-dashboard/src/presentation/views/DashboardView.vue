@@ -83,7 +83,7 @@
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Comunidad Autónoma</h3>
                 <div class="h-80">
-                  <BaseChartJS :config="communityChartConfig" />
+                  <BasePlotly :data="(salesStore.communityPlotlyData as any)" :layout="communityPlotlyLayout" />
                 </div>
               </div>
               <!-- 4. Ventas por Planta -->
@@ -182,7 +182,7 @@
 
               <!-- Treemap de Transporte -->
               <div class="col-span-1 md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <h3 class="text-lg font-bold text-gray-700 m-6 mb-4">Distribución Jerárquica: Transportista > Matrícula</h3>
+                <h3 class="text-lg font-bold text-gray-700 m-6 mb-4">Análisis Transportista > Matrícula</h3>
                 <div class="w-full h-[850px]">
                   <BasePlotly 
                     :data="(salesStore.transportTreeMapData as any)" 
@@ -552,7 +552,7 @@ const concentrationChartData = computed(() => {
       type: 'pie',
       hole: 0.5,
       marker: {
-        colors: ['#004730', '#B7D4C0']
+        colors: ['#004730', '#4B7F61']
       },
       textinfo: 'label+percent',
       hoverinfo: 'label+value+percent',
@@ -585,7 +585,7 @@ const bubbleChartData = computed(() => {
         sizeref: 2.0 * Math.max(...data.map(d => d.average)) / (40 ** 2),
         sizemin: 4,
         color: data.map(d => d.volume),
-        colorscale: 'Viridis',
+        colorscale: 'Greens',
         showscale: true,
         reversescale: true,
         opacity: 0.7,
@@ -622,7 +622,7 @@ const heatmapChartData = computed(() => {
       y: data.y,
       z: data.z,
       type: 'heatmap',
-      colorscale: 'Viridis',
+      colorscale: 'Greens',
       reversescale: true,
       showscale: true,
       hoverongaps: false,
@@ -668,6 +668,27 @@ const treemapLayout = {
     bgcolor: '#FFF',
     font: { family: 'Inter, sans-serif', size: 14 }
   }
+}
+
+const communityPlotlyLayout = {
+  autosize: true,
+  margin: { t: 40, l: 40, r: 40, b: 40 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { family: 'Inter, sans-serif' },
+  polar: {
+    bgcolor: 'rgba(249, 250, 251, 0.5)',
+    angularaxis: {
+      gridcolor: '#eee',
+      linecolor: '#eee'
+    },
+    radialaxis: {
+      gridcolor: '#eee',
+      linecolor: '#eee',
+      side: 'counterclockwise' as any
+    }
+  },
+  showlegend: false,
 }
 
 const violinLayout = {

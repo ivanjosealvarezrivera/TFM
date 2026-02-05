@@ -79,6 +79,25 @@ export const useSalesStore = defineStore('sales', () => {
     }, {})
   })
 
+  const communityPlotlyData = computed(() => {
+    const data = volumeByCommunity.value
+    const labels = Object.keys(data)
+    const values = Object.values(data)
+    
+    return [{
+      type: 'barpolar',
+      r: values,
+      theta: labels,
+      marker: {
+        color: values,
+        colorscale: 'Greens',
+        reversescale: true,
+        line: { width: 1, color: 'white' }
+      },
+      hovertemplate: '<b>%{theta}</b><br>Volumen: %{r:,.0f} m³<extra></extra>'
+    }]
+  })
+
   const salesByDay = computed(() => {
     const data = filteredSales.value.reduce((acc: Record<string, number>, sale) => {
       const d = sale.fecha // Ya es YYYY-MM-DD
@@ -237,23 +256,32 @@ export const useSalesStore = defineStore('sales', () => {
     const groups: Record<string, number[]> = {}
     
     filteredSales.value.forEach(sale => {
-      if (!groups[sale.nomenclatura]) {
-        groups[sale.nomenclatura] = [];
+      // Solo mostrar nomenclaturas que empiecen por HA o HAF
+      if (sale.nomenclatura.startsWith('HA') || sale.nomenclatura.startsWith('HAF')) {
+        if (!groups[sale.nomenclatura]) {
+          groups[sale.nomenclatura] = [];
+        }
+        groups[sale.nomenclatura]!.push(sale.contenidoCementoReal);
       }
-      groups[sale.nomenclatura]!.push(sale.contenidoCementoReal);
     })
 
-    return Object.entries(groups).map(([nom, values]) => ({
-      type: 'violin',
-      y: values,
-      name: nom,
-      box: { visible: true },
-      meanline: { visible: true },
-      points: 'all',
-      jitter: 0.5,
-      marker: { size: 2, color: '#1A664B' },
-      line: { color: '#004730' }
-    }))
+    const sortedEntries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+    const greenPalette = ['#004730', '#1A664B', '#2D8A66', '#4B7F61', '#6BA285', '#8CC2A2', '#B7D4C0'];
+
+    return sortedEntries.map(([nom, values], index) => {
+      const color = greenPalette[index % greenPalette.length] || '#004730';
+      return {
+        type: 'violin',
+        y: values,
+        name: nom,
+        box: { visible: true },
+        meanline: { visible: true },
+        points: 'all',
+        jitter: 0.5,
+        marker: { size: 2, color: color },
+        line: { color: color }
+      }
+    })
   })
 
   // --- Análisis de Transporte ---
@@ -323,12 +351,6 @@ export const useSalesStore = defineStore('sales', () => {
   })
 
   const transportTreeMapData = computed(() => {
-    // Paleta de colores categórica para transportistas
-    const colorPalette = [
-      '#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', 
-      '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52'
-    ];
-
     // Estructura: Map<Transportista, Map<Matricula, Volumen>>
     const hierarchy: Record<string, Record<string, number>> = {};
     const transporterVolumes: Record<string, number> = {};
@@ -345,49 +367,44 @@ export const useSalesStore = defineStore('sales', () => {
       transporterVolumes[transporter] = (transporterVolumes[transporter] || 0) + sale.cantidad;
     });
 
+    const ids: string[] = [];
     const labels: string[] = [];
     const parents: string[] = [];
     const values: number[] = [];
     const text: string[] = [];
-    const colors: string[] = [];
 
     // Nodo Raíz invisible para agrupar todo
-    const rootLabel = "Transportistas";
-    labels.push(rootLabel);
+    const rootId = "root_transportistas";
+    ids.push(rootId);
+    labels.push("Transportistas");
     parents.push("");
     values.push(totalVolume.value);
-    text.push("");
-    colors.push('rgba(0,0,0,0)');
+    text.push(`${totalVolume.value.toLocaleString()} m³`);
 
     // Añadir Transportistas
-    Object.entries(transporterVolumes).forEach(([transporter, volume], index) => {
+    Object.entries(transporterVolumes).forEach(([transporter, volume]: [string, number]) => {
+      ids.push(transporter);
       labels.push(transporter);
-      parents.push(rootLabel);
+      parents.push(rootId);
       values.push(volume);
-      text.push(`<b>${transporter}</b><br>${volume.toLocaleString()} m³`);
-      // Asignar color de la paleta
-      colors.push(colorPalette[index % colorPalette.length] || '#888');
+      text.push(`${volume.toLocaleString()} m³`);
     });
 
     // Añadir Matrículas bajo sus Transportistas
-    Object.entries(hierarchy).forEach(([transporter, trucks], tIndex) => {
-      const parentColor = colorPalette[tIndex % colorPalette.length] || '#888';
-      Object.entries(trucks).forEach(([truck, volume]) => {
-        // ID único para evitar colisiones
-        const truckId = `${transporter} - ${truck}`;
-        labels.push(truckId);
+    Object.entries(hierarchy).forEach(([transporter, trucks]: [string, Record<string, number>]) => {
+      Object.entries(trucks).forEach(([truck, volume]: [string, number]) => {
+        const truckId = `${transporter}_${truck}`;
+        ids.push(truckId);
+        labels.push(truck);
         parents.push(transporter);
         values.push(volume);
-        // Texto más limpio para matrículas
-        text.push(`${truck}<br>${volume.toLocaleString()} m³`);
-        // Las matrículas heredan el color del padre pero con cierta opacidad o ligero ajuste si se desea
-        // En Plotly, si no se especifica color por nodo, los hijos pueden heredar o comportarse según la escala
-        colors.push(parentColor);
+        text.push(`${volume.toLocaleString()} m³`);
       });
     });
 
     return [{
-      type: "treemap",
+      type: "sunburst",
+      ids,
       labels,
       parents,
       values,
@@ -396,12 +413,10 @@ export const useSalesStore = defineStore('sales', () => {
       hoverinfo: "label+value+percent parent",
       branchvalues: "total",
       marker: {
-        colors: colors,
-        line: { width: 2, color: 'white' },
-        pad: { b: 5, l: 5, r: 5, t: 25 }
-      },
-      pathbar: { visible: true, thickness: 30, textfont: { size: 14 } },
-      tiling: { packing: 'squarify', pad: 4 }
+        colorscale: 'Greens',
+        reversescale: true,
+        line: { width: 2, color: 'white' }
+      }
     }];
   })
 
@@ -675,6 +690,7 @@ export const useSalesStore = defineStore('sales', () => {
     volumeVariation,
     volumeByPlanta,
     volumeByCommunity,
+    communityPlotlyData,
     salesByDay,
     salesByMonth,
     maxSalesDay,
