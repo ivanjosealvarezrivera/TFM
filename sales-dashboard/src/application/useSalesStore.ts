@@ -547,6 +547,76 @@ export const useSalesStore = defineStore('sales', () => {
     }))
   })
 
+  const technicalHeatmapData = computed(() => {
+    const data: Record<string, number[]> = {} // weekLabel -> [mon, tue, wed, thu, fri, sat, sun]
+    
+    filteredSales.value.forEach(sale => {
+      const date = new Date(sale.fecha)
+      const day = (date.getDay() + 6) % 7 // Lunes = 0, Domingo = 6
+      
+      // Cálculo de semana ISO simplificado para el label
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+      const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
+      const weekLabel = `Sem. ${weekNo} (${d.getUTCFullYear()})`
+
+      if (!data[weekLabel]) {
+        data[weekLabel] = [0, 0, 0, 0, 0, 0, 0]
+      }
+      const weekArray = data[weekLabel]!
+      weekArray[day] += sale.cantidad
+    })
+
+    // Ordenar semanas cronológicamente
+    const weeks = Object.keys(data).sort((a, b) => {
+      const matchA = a.match(/Sem\. (\d+) \((\d+)\)/)
+      const matchB = b.match(/Sem\. (\d+) \((\d+)\)/)
+      
+      if (matchA && matchB) {
+        const yearA = parseInt(matchA[2] || '0')
+        const yearB = parseInt(matchB[2] || '0')
+        if (yearA !== yearB) return yearA - yearB
+        
+        const weekA = parseInt(matchA[1] || '0')
+        const weekB = parseInt(matchB[1] || '0')
+        return weekA - weekB
+      }
+      return a.localeCompare(b)
+    })
+
+    const zMatrix = weeks.map(w => data[w])
+    
+    return {
+      x: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'],
+      y: weeks,
+      z: zMatrix
+    }
+  })
+
+  const technicalKPIs = computed(() => {
+    const sales = filteredSales.value
+    if (sales.length === 0) return { avgPerTrip: 0, totalArticles: 0, topArticle: '---', bestPlant: '---' }
+
+    const articles: Record<string, number> = {}
+    const plants: Record<string, number> = {}
+    
+    sales.forEach(s => {
+      articles[s.articulo] = (articles[s.articulo] || 0) + s.cantidad
+      plants[s.planta] = (plants[s.planta] || 0) + s.cantidad
+    })
+
+    const topArticleEntry = Object.entries(articles).sort((a, b) => b[1] - a[1])[0]
+    const bestPlantEntry = Object.entries(plants).sort((a, b) => b[1] - a[1])[0]
+
+    return {
+      avgPerTrip: totalVolume.value / sales.length,
+      totalArticles: Object.keys(articles).length,
+      topArticle: topArticleEntry ? topArticleEntry[0] : '---',
+      bestPlant: bestPlantEntry ? bestPlantEntry[0] : '---'
+    }
+  })
+
   function setSales(sales: Sale[]) {
     rawSales.value = sales
   }
@@ -587,6 +657,8 @@ export const useSalesStore = defineStore('sales', () => {
     top10ClientsInfo,
     concentrationData,
     customerLoyaltyData,
+    technicalHeatmapData,
+    technicalKPIs,
     pivotData,
     isLoading,
     setSales,

@@ -135,7 +135,14 @@
           </TabPanel>
 
           <TabPanel value="2">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
+              <KPICard 
+                title="Volumen Medio / Viaje" 
+                :value="salesStore.technicalKPIs.avgPerTrip.toFixed(2) + ' m³'" 
+                icon="pi pi-truck" 
+                iconClass="text-blue-600" 
+                subtitle="Eficiencia promedio de carga"
+              />
               <KPICard 
                 title="Top Transportista" 
                 :value="salesStore.topTransportista ? salesStore.topTransportista.name : '---'" 
@@ -237,6 +244,16 @@
             <!-- Tabla de Detalle -->
             <div class="mt-8">
               <CustomerSalesTable :data="salesStore.customerLoyaltyData" />
+            </div>
+          </TabPanel>
+
+          <TabPanel value="4">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mt-6">
+              <h3 class="text-lg font-bold text-gray-700 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
+              <p class="text-sm text-gray-500 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
+              <div class="h-[600px]">
+                <BasePlotly :data="(heatmapChartData as any)" :layout="(heatmapLayout as any)" />
+              </div>
             </div>
           </TabPanel>
         </TabPanels>
@@ -595,6 +612,46 @@ const bubbleLayout = {
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(249, 250, 251, 0.5)',
+  font: { family: 'Inter, sans-serif' }
+}
+
+const heatmapChartData = computed(() => {
+  const data = salesStore.technicalHeatmapData;
+  return [
+    {
+      x: data.x,
+      y: data.y,
+      z: data.z,
+      type: 'heatmap',
+      colorscale: 'Viridis',
+      reversescale: true,
+      showscale: true,
+      hoverongaps: false,
+      text: (data.z || []).map((row, i) => 
+        (row || []).map((val, j) => 
+          `<b>Día:</b> ${data.x[j]}<br><b>Semana:</b> ${data.y[i]}<br><b>Volumen:</b> ${val.toLocaleString()} m³`
+        )
+      ),
+      hoverinfo: 'text'
+    }
+  ];
+});
+
+const heatmapLayout = {
+  autosize: true,
+  margin: { t: 60, l: 120, r: 20, b: 60 },
+  xaxis: {
+    title: { text: 'Día de la Semana', standoff: 20 },
+    side: 'top' as any,
+    fixedrange: true
+  },
+  yaxis: {
+    title: { text: 'Semanas', standoff: 20 },
+    autorange: 'reversed',
+    fixedrange: true
+  },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
   font: { family: 'Inter, sans-serif' }
 }
 
