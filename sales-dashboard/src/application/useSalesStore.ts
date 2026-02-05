@@ -547,6 +547,43 @@ export const useSalesStore = defineStore('sales', () => {
     }))
   })
 
+  const plantPerformanceData = computed(() => {
+    const data: Record<string, { 
+      volume: number; 
+      count: number; 
+      firstDate: string; 
+      lastDate: string;
+      comunidad: string;
+    }> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.planta]) {
+        data[sale.planta] = { 
+          volume: 0, 
+          count: 0, 
+          firstDate: sale.fecha, 
+          lastDate: sale.fecha,
+          comunidad: sale.comunidad
+        }
+      }
+      const info = data[sale.planta]!
+      info.volume += sale.cantidad
+      info.count += 1
+      if (sale.fecha < info.firstDate) info.firstDate = sale.fecha
+      if (sale.fecha > info.lastDate) info.lastDate = sale.fecha
+    })
+
+    return Object.entries(data).map(([name, info]) => ({
+      name,
+      comunidad: info.comunidad,
+      volume: info.volume,
+      frequency: info.count,
+      average: info.volume / info.count,
+      firstPurchase: info.firstDate,
+      lastPurchase: info.lastDate
+    })).sort((a, b) => b.volume - a.volume)
+  })
+
   const technicalHeatmapData = computed(() => {
     const data: Record<string, number[]> = {} // weekLabel -> [mon, tue, wed, thu, fri, sat, sun]
     
@@ -657,6 +694,7 @@ export const useSalesStore = defineStore('sales', () => {
     top10ClientsInfo,
     concentrationData,
     customerLoyaltyData,
+    plantPerformanceData,
     technicalHeatmapData,
     technicalKPIs,
     pivotData,

@@ -1,52 +1,59 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-      <h3 class="text-lg font-bold text-gray-700">Matriz de Ventas por Planta (m³)</h3>
-      <span class="text-sm text-gray-500 font-medium">{{ data.rows.length }} días registrados</span>
+      <h3 class="text-lg font-bold text-gray-700">Rendimiento por Planta</h3>
+      <span class="text-sm text-gray-500 font-medium">{{ data.length }} plantas activas</span>
     </div>
     
     <DataTable 
-      :value="data.rows" 
+      :value="data" 
       stripedRows 
       paginator 
       :rows="10" 
-      :rowsPerPageOptions="[10, 20, 50, 100]"
+      :rowsPerPageOptions="[10, 20, 50]"
       class="p-datatable-sm custom-table"
       removableSort
+      sortField="volume"
+      :sortOrder="-1"
     >
-      <Column field="date" header="Fecha" sortable class="min-w-[90px]">
+      <Column field="name" header="Planta / Comunidad" sortable class="min-w-[250px]">
         <template #body="{ data }">
-          <span class="font-bold text-slate-900 text-[10px]">{{ data.date }}</span>
+          <div class="flex flex-col">
+            <span class="font-bold text-slate-900 uppercase text-xs">{{ data.name }}</span>
+            <span class="text-[10px] text-slate-500 font-mono">{{ data.comunidad }}</span>
+          </div>
         </template>
       </Column>
       
-      <Column v-for="plant in data.columns" :key="plant" :field="plant" sortable class="text-right">
-        <template #header>
-          <div class="vertical-header-text">
-            {{ plant }}
-          </div>
-        </template>
+      <Column field="volume" header="Volumen Total" sortable>
         <template #body="{ data }">
-          <span :class="data[plant] > 0 ? 'text-slate-700 font-medium' : 'text-slate-300 font-light'" class="text-[10px]">
-            {{ data[plant] > 0 ? data[plant].toFixed(1) : '-' }}
-          </span>
+          <span class="font-bold text-emerald-900">{{ data.volume.toLocaleString() }} m³</span>
         </template>
       </Column>
       
-      <Column field="total" header="Total" sortable class="text-right min-w-[80px] bg-emerald-50/50">
+      <Column field="frequency" header="Nº Albaranes" sortable class="text-center">
         <template #body="{ data }">
-          <span class="font-black text-emerald-900 text-[10px]">{{ data.total.toFixed(1) }}</span>
+          <Tag :value="data.frequency" severity="success" rounded />
         </template>
       </Column>
-
-      <template #footer v-if="data.plantTotals">
-        <div class="flex items-center justify-between p-2 px-6 bg-slate-50 font-bold text-xs uppercase tracking-wider text-slate-600">
-          <span>Totales Generales</span>
-          <div class="flex gap-8">
-            <span class="text-emerald-700">Total Volumen: {{ data.grandTotal?.toLocaleString() }} m³</span>
-          </div>
-        </div>
-      </template>
+      
+      <Column field="average" header="Media / Albarán" sortable>
+        <template #body="{ data }">
+          <span class="text-emerald-800 font-semibold">{{ data.average.toFixed(2) }} m³</span>
+        </template>
+      </Column>
+      
+      <Column field="firstPurchase" header="Primer Suministro" sortable>
+        <template #body="{ data }">
+          <span class="text-slate-600 text-sm">{{ formatDate(data.firstPurchase) }}</span>
+        </template>
+      </Column>
+      
+      <Column field="lastPurchase" header="Último Suministro" sortable>
+        <template #body="{ data }">
+          <span class="text-slate-900 font-bold text-sm">{{ formatDate(data.lastPurchase) }}</span>
+        </template>
+      </Column>
     </DataTable>
   </div>
 </template>
@@ -54,15 +61,25 @@
 <script setup lang="ts">
 import DataTable from 'primevue/datatable';
 import Column from 'primevue/column';
+import Tag from 'primevue/tag';
 
 defineProps<{
-  data: {
-    columns: string[];
-    rows: any[];
-    plantTotals: Record<string, number>;
-    grandTotal: number;
-  }
+  data: Array<{
+    name: string;
+    comunidad: string;
+    volume: number;
+    frequency: number;
+    average: number;
+    firstPurchase: string;
+    lastPurchase: string;
+  }>
 }>();
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '---';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+};
 </script>
 
 <style scoped>
@@ -76,22 +93,10 @@ defineProps<{
   color: #475569 !important;
   font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.65rem;
-  letter-spacing: 0.02em;
-  padding: 0.4rem 0.2rem !important;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 1rem;
   border-bottom: 2px solid #e2e8f0;
-  white-space: nowrap;
-  vertical-align: bottom;
-  height: 120px;
-}
-
-.vertical-header-text {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  text-align: left;
-  margin: 0 auto;
-  line-height: 1;
-  padding-bottom: 5px;
 }
 
 .custom-table :deep(.p-datatable-tbody > tr) {
@@ -100,10 +105,9 @@ defineProps<{
 }
 
 .custom-table :deep(.p-datatable-tbody > tr > td) {
-  padding: 0.4rem 0.3rem !important;
+  padding: 1rem;
   border-bottom: 1px solid #f1f5f9;
   background-color: inherit;
-  font-size: 0.7rem;
 }
 
 /* Filas alternas (zebra) */
@@ -119,7 +123,7 @@ defineProps<{
 .custom-table :deep(.p-paginator) {
   background-color: #ffffff !important;
   border-top: 1px solid #f1f5f9;
-  padding: 0.5rem;
+  padding: 0.75rem;
 }
 
 .custom-table :deep(.p-paginator .p-paginator-page),
@@ -128,18 +132,10 @@ defineProps<{
 .custom-table :deep(.p-paginator .p-paginator-first),
 .custom-table :deep(.p-paginator .p-paginator-prev) {
   color: #64748b !important;
-  min-width: 2rem;
-  height: 2rem;
 }
 
 .custom-table :deep(.p-paginator .p-paginator-page.p-highlight) {
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
-}
-
-.plant-header {
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 </style>

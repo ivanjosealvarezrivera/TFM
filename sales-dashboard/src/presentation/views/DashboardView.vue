@@ -276,6 +276,7 @@ import KPICard from '../components/KPICard.vue';
 import CustomerSalesTable from '../components/CustomerSalesTable.vue';
 import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
+import PlantSalesTable from '../components/PlantSalesTable.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
