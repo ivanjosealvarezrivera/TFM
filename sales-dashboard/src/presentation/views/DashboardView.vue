@@ -392,10 +392,11 @@ const formatNum = (val: number | string | undefined | null, decimals: number = 0
   if (val === undefined || val === null || val === '') return '---'
   const num = typeof val === 'string' ? parseFloat(val) : val
   if (isNaN(num)) return val.toString()
-  return new Intl.NumberFormat('es-ES', {
+  return num.toLocaleString('es-ES', {
     minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  }).format(num)
+    maximumFractionDigits: decimals,
+    useGrouping: true
+  })
 }
 
 const dates = ref<Date[] | null>(null)
