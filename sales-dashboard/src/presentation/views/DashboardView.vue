@@ -272,7 +272,8 @@
               />
             </div>
 
-            <div class="grid grid-cols-1 gap-6 mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <!-- Gráfico de Eficiencia -->
               <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h3 class="text-lg font-bold text-gray-700 mb-4">Eficiencia Logística por Planta (Tiempo Viaje vs Descarga)</h3>
                 <p class="text-sm text-gray-500 mb-6">El tamaño de la burbuja indica el número de descargas tardías. Cuanto más arriba y a la derecha, mayores son los tiempos máximos.</p>
@@ -280,13 +281,14 @@
                   <BasePlotly :data="(technicalBubbleChartData as any)" :layout="(technicalBubbleLayout as any)" />
                 </div>
               </div>
-            </div>
 
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-              <h3 class="text-lg font-bold text-gray-700 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
-              <p class="text-sm text-gray-500 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
-              <div :style="{ height: heatmapChartHeight }">
-                <BasePlotly :data="(heatmapChartData as any)" :layout="(heatmapLayout as any)" />
+              <!-- Heatmap de Demanda -->
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
+                <p class="text-sm text-gray-500 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
+                <div :style="{ height: heatmapChartHeight }">
+                  <BasePlotly :data="(heatmapChartData as any)" :layout="(heatmapLayout as any)" />
+                </div>
               </div>
             </div>
           </TabPanel>
