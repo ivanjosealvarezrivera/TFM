@@ -14,6 +14,7 @@ export default {
         'lighter-pale-green': '#B7D4C0',
         'light-greenish-bg': '#F0F4F0',
         'primary-red': '#D42E12',
+        'brighter-green': '#22C55E',
       }
     },
   },

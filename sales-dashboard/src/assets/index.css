@@ -1,17 +1,10 @@
 @import "tailwindcss";
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background-color: #F0F4F0;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-/* Colores personalizados para Tailwind 4 si no se usan en tailwind.config.js */
+/* 
+  Definición de tema para Tailwind 4. 
+  Esto asegura que las clases como bg-primary-green funcionen correctamente
+  y permite usar las variables en los componentes de PrimeVue.
+*/
 @theme {
   --color-primary-green: #004730;
   --color-darker-green: #1A664B;
