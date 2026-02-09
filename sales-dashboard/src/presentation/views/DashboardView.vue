@@ -248,10 +248,44 @@
           </TabPanel>
 
           <TabPanel value="4">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mt-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
+              <KPICard 
+                title="Tiempo Máximo a Obra" 
+                :value="salesStore.technicalKPIs.maxTimeToSite.toFixed(0) + ' min'" 
+                icon="pi pi-map-marker" 
+                iconClass="text-orange-600" 
+                subtitle="Máximo tiempo de transporte"
+              />
+              <KPICard 
+                title="Tiempo Máximo Descarga" 
+                :value="salesStore.technicalKPIs.maxUnloadingTime.toFixed(0) + ' min'" 
+                icon="pi pi-clock" 
+                iconClass="text-blue-600" 
+                subtitle="Máximo tiempo en obra"
+              />
+              <KPICard 
+                title="Nº Descargas Tardías" 
+                :value="salesStore.technicalKPIs.lateUnloadingsCount.toLocaleString()" 
+                icon="pi pi-exclamation-triangle" 
+                iconClass="text-red-600" 
+                subtitle="Exceso sobre límite de uso"
+              />
+            </div>
+
+            <div class="grid grid-cols-1 gap-6 mb-8">
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-700 mb-4">Eficiencia Logística por Planta (Tiempo Viaje vs Descarga)</h3>
+                <p class="text-sm text-gray-500 mb-6">El tamaño de la burbuja indica el número de descargas tardías. Cuanto más arriba y a la derecha, mayores son los tiempos máximos.</p>
+                <div class="h-[500px]">
+                  <BasePlotly :data="(technicalBubbleChartData as any)" :layout="(technicalBubbleLayout as any)" />
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <h3 class="text-lg font-bold text-gray-700 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
               <p class="text-sm text-gray-500 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
-              <div class="h-[600px]">
+              <div :style="{ height: heatmapChartHeight }">
                 <BasePlotly :data="(heatmapChartData as any)" :layout="(heatmapLayout as any)" />
               </div>
             </div>
@@ -525,6 +559,11 @@ const matriculaChartHeight = computed(() => {
     return `${Math.max(400, count * 20)}px`;
 })
 
+const heatmapChartHeight = computed(() => {
+    const count = (salesStore.technicalHeatmapData.y || []).length;
+    return `${Math.max(600, count * 25)}px`;
+})
+
 
 const concentrationChartData = computed(() => {
   const data = salesStore.concentrationData;
@@ -619,6 +658,49 @@ const heatmapChartData = computed(() => {
   ];
 });
 
+const technicalBubbleChartData = computed(() => {
+  const data = salesStore.technicalKPIsByPlant;
+  return [
+    {
+      x: data.map(d => d.maxTimeToSite),
+      y: data.map(d => d.maxUnloadingTime),
+      text: data.map(d => `<b>Planta: ${d.name}</b><br>T. Máx Viaje: ${d.maxTimeToSite.toFixed(0)} min<br>T. Máx Descarga: ${d.maxUnloadingTime.toFixed(0)} min<br>Descargas Tardías: ${d.lateUnloadings}`),
+      mode: 'markers',
+      marker: {
+        size: data.map(d => d.lateUnloadings),
+        sizemode: 'area',
+        sizeref: 2.0 * Math.max(...data.map(d => d.lateUnloadings), 1) / (60 ** 2),
+        sizemin: 10,
+        color: data.map(d => d.lateUnloadings),
+        colorscale: 'Greens',
+        showscale: true,
+        reversescale: true,
+        opacity: 0.7,
+        line: { width: 1, color: '#fff' }
+      }
+    }
+  ];
+});
+
+const technicalBubbleLayout = {
+  autosize: true,
+  margin: { t: 40, l: 60, r: 20, b: 60 },
+  hovermode: 'closest' as any,
+  xaxis: {
+    title: { text: 'T. Máximo a Obra (min)' },
+    gridcolor: '#f0f0f0',
+    zeroline: false
+  },
+  yaxis: {
+    title: { text: 'T. Máximo Descarga (min)' },
+    gridcolor: '#f0f0f0',
+    zeroline: false
+  },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(249, 250, 251, 0.5)',
+  font: { family: 'Inter, sans-serif' }
+}
+
 const heatmapLayout = {
   autosize: true,
   margin: { t: 60, l: 120, r: 20, b: 60 },
@@ -630,7 +712,8 @@ const heatmapLayout = {
   yaxis: {
     title: { text: 'Semanas', standoff: 20 },
     autorange: 'reversed',
-    fixedrange: true
+    fixedrange: true,
+    dtick: 1
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',

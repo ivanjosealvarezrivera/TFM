@@ -652,14 +652,35 @@ export const useSalesStore = defineStore('sales', () => {
 
   const technicalKPIs = computed(() => {
     const sales = filteredSales.value
-    if (sales.length === 0) return { avgPerTrip: 0, totalArticles: 0, topArticle: '---', bestPlant: '---' }
+    if (sales.length === 0) return { 
+      avgPerTrip: 0, 
+      totalArticles: 0, 
+      topArticle: '---', 
+      bestPlant: '---',
+      maxTimeToSite: 0,
+      maxUnloadingTime: 0,
+      lateUnloadingsCount: 0
+    }
 
     const articles: Record<string, number> = {}
     const plants: Record<string, number> = {}
+    let maxTimeToSite = 0
+    let maxUnloadingTime = 0
+    let lateUnloadingsCount = 0
     
     sales.forEach(s => {
       articles[s.articulo] = (articles[s.articulo] || 0) + s.cantidad
       plants[s.planta] = (plants[s.planta] || 0) + s.cantidad
+      
+      if (s.tiempoViaje && s.tiempoViaje > maxTimeToSite) {
+        maxTimeToSite = s.tiempoViaje
+      }
+      if (s.tiempoDescarga && s.tiempoDescarga > maxUnloadingTime) {
+        maxUnloadingTime = s.tiempoDescarga
+      }
+      if (s.descargaTardia) {
+        lateUnloadingsCount++
+      }
     })
 
     const topArticleEntry = Object.entries(articles).sort((a, b) => b[1] - a[1])[0]
@@ -669,8 +690,41 @@ export const useSalesStore = defineStore('sales', () => {
       avgPerTrip: totalVolume.value / sales.length,
       totalArticles: Object.keys(articles).length,
       topArticle: topArticleEntry ? topArticleEntry[0] : '---',
-      bestPlant: bestPlantEntry ? bestPlantEntry[0] : '---'
+      bestPlant: bestPlantEntry ? bestPlantEntry[0] : '---',
+      maxTimeToSite,
+      maxUnloadingTime,
+      lateUnloadingsCount
     }
+  })
+
+  const technicalKPIsByPlant = computed(() => {
+    const data: Record<string, { 
+      maxTimeToSite: number; 
+      maxUnloadingTime: number; 
+      lateUnloadings: number;
+    }> = {}
+    
+    filteredSales.value.forEach(sale => {
+      if (!data[sale.planta]) {
+        data[sale.planta] = { maxTimeToSite: 0, maxUnloadingTime: 0, lateUnloadings: 0 }
+      }
+      const plantData = data[sale.planta]!
+      
+      if (sale.tiempoViaje && sale.tiempoViaje > plantData.maxTimeToSite) {
+        plantData.maxTimeToSite = sale.tiempoViaje
+      }
+      if (sale.tiempoDescarga && sale.tiempoDescarga > plantData.maxUnloadingTime) {
+        plantData.maxUnloadingTime = sale.tiempoDescarga
+      }
+      if (sale.descargaTardia) {
+        plantData.lateUnloadings++
+      }
+    })
+
+    return Object.entries(data).map(([name, info]) => ({
+      name,
+      ...info
+    }))
   })
 
   function setSales(sales: Sale[]) {
@@ -717,6 +771,7 @@ export const useSalesStore = defineStore('sales', () => {
     plantPerformanceData,
     technicalHeatmapData,
     technicalKPIs,
+    technicalKPIsByPlant,
     pivotData,
     isLoading,
     setSales,
