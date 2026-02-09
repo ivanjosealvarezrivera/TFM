@@ -3,23 +3,24 @@ import { SalesMapper } from '../mappers/SalesMapper'
 import type { RawExcelSale } from '../types/ExcelRow'
 
 self.onmessage = async (event: MessageEvent) => {
-  const { arrayBuffer } = event.data
+  const { file } = event.data
   
   try {
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' })
-    const firstSheetName = workbook.SheetNames[0]
-    if (!firstSheetName) throw new Error('Excel has no sheets')
-    const worksheet = workbook.Sheets[firstSheetName]
-    if (!worksheet) throw new Error('Worksheet not found')
-    const jsonData: (string | number | null | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true })
+    const arrayBuffer = await (file as File).arrayBuffer()
+    // --- FASE 1: LECTURA ULTRA-RÁPIDA (Solo cabeceras) ---
+    // Usamos sheetRows: 1 para que XLSX se detenga inmediatamente tras la primera fila.
+    const headerWorkbook = XLSX.read(arrayBuffer, { type: 'array', sheetRows: 1 })
+    const mainSheetName = headerWorkbook.SheetNames[0]
+    if (!mainSheetName) throw new Error('El archivo Excel no tiene hojas')
     
-    if (jsonData.length === 0) throw new Error('Excel is empty')
+    const headerSheet = headerWorkbook.Sheets[mainSheetName]
+    if (!headerSheet) throw new Error(`No se pudo acceder a la hoja: ${mainSheetName}`)
+    const headersRaw = (XLSX.utils.sheet_to_json(headerSheet, { header: 1, range: 0, raw: true })[0] as any[])
+    if (!headersRaw) throw new Error('No se han encontrado cabeceras en el archivo')
     
-    const headersRaw = jsonData[0]
-    if (!headersRaw) throw new Error('No headers found')
     const headers = headersRaw.map(h => h?.toString().trim() || '')
     
-    // Validación exhaustiva de columnas requeridas por el Mapper y Lógica de Negocio
+    // Validación de columnas requeridas
     const essentialColumns = [
       'Nombre planta',
       'Número albarán',
@@ -49,8 +50,23 @@ self.onmessage = async (event: MessageEvent) => {
     const missingColumns = essentialColumns.filter(col => !headers.includes(col))
     
     if (missingColumns.length > 0) {
-      throw new Error(`Error: El archivo no cumple el contrato de datos. Faltan las siguientes columnas: ${missingColumns.join(', ')}`)
+      self.postMessage({ 
+        status: 'error', 
+        type: 'INVALID_HEADER',
+        message: `El archivo no cumple con las columnas requeridas.`,
+        details: missingColumns
+      })
+      return
     }
+
+    // --- FASE 2: LECTURA COMPLETA (Solo si es válido) ---
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+    const worksheet = workbook.Sheets[mainSheetName]
+    if (!worksheet) throw new Error(`Error en la lectura completa de la hoja: ${mainSheetName}`)
+
+    // Si las cabeceras son correctas, procesamos el resto del archivo
+    const jsonData: (string | number | null | undefined)[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true })
+    if (jsonData.length <= 1) throw new Error('El archivo no contiene datos de ventas')
 
     const uniqueRowsMap = new Map<string, RawExcelSale>()
     

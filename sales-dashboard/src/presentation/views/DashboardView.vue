@@ -1,24 +1,76 @@
 <template>
   <div class="p-6 max-w-[1600px] mx-auto">
-    <header class="bg-white p-8 rounded-2xl shadow-md mb-8 border-t-4 border-primary-green">
-      <h1 class="text-3xl font-black text-gray-800 text-center">Panel de Análisis de Ventas de Hormigón</h1>
-      <p class="text-center text-gray-500 mt-2 font-medium">Refactorización Profesional Clean Architecture</p>
+    <header class="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-md mb-8 border-t-4 border-primary-green flex justify-between items-center transition-colors duration-300">
+      <div class="flex-1 text-center">
+        <h1 class="text-3xl font-black text-gray-800 dark:text-gray-100">Panel de Análisis de Ventas de Hormigón</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-2 font-medium italic">Inteligencia de Negocio y Control de Gestión Operativa</p>
+      </div>
+      <Button 
+        :icon="isDark ? 'pi pi-sun' : 'pi pi-moon'" 
+        @click="toggleDarkMode" 
+        rounded 
+        text 
+        severity="secondary"
+        class="ml-4"
+        v-tooltip.bottom="'Cambiar tema'"
+      />
     </header>
 
-    <div class="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
+    <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300">
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="flex-1">
-          <label class="block text-sm font-bold text-gray-700 mb-2">Archivo de Ventas (.xlsx)</label>
+          <label class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">Archivo de Ventas (.xlsx)</label>
           <input 
             type="file" 
             accept=".xlsx" 
             @change="handleFileUpload"
-            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-green file:text-white hover:file:bg-darker-green transition-all"
+            class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-green file:text-white hover:file:bg-darker-green transition-all"
           >
+          
+          <!-- Bloque de Error Persistente (Contrato de Datos) -->
+          <div v-if="salesStore.fileError" class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fadein">
+            <div class="flex items-start gap-3">
+              <i class="pi pi-exclamation-circle text-red-600 dark:text-red-400 mt-1"></i>
+              <div>
+                <h4 class="text-sm font-bold text-red-800 dark:text-red-200">Error en estructura del archivo</h4>
+                <p class="text-xs text-red-700 dark:text-red-300 mt-1">{{ salesStore.fileError }}</p>
+                <div v-if="missingCols && missingCols.length > 0" class="mt-2 flex flex-wrap gap-1">
+                  <span v-for="col in missingCols" :key="col" class="px-2 py-0.5 bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100 text-[10px] font-bold rounded uppercase">
+                    {{ col }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div v-if="salesStore.rawSales.length > 0" class="flex gap-4">
-          <DatePicker v-model="dates" selectionMode="range" :manualInput="false" placeholder="Rango de Fechas" dateFormat="dd/mm/yy" />
-          <Button label="Limpiar Filtros" icon="pi pi-filter-slash" outlined @click="resetFilters" />
+        <div v-if="salesStore.rawSales.length > 0" class="flex flex-col gap-2 min-w-[320px]">
+          <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex justify-between">
+            <span>Filtrar por periodo</span>
+            <span v-if="dates && dates[0] && !dates[1]" class="text-primary-green animate-pulse">Selecciona la segunda fecha...</span>
+            <span v-else-if="dates && dates[1]" class="text-primary-green">Rango seleccionado</span>
+          </label>
+          <div class="flex gap-2">
+            <DatePicker 
+              v-model="dates" 
+              selectionMode="range" 
+              :manualInput="false" 
+              placeholder="Elegir inicio y fin" 
+              dateFormat="dd/mm/yy" 
+              showIcon 
+              iconDisplay="input"
+              numberOfMonths="2"
+              hideOnRangeSelection
+              class="flex-1"
+              v-tooltip.top="'Haz clic en el primer día y luego en el último para definir el rango'"
+            />
+            <Button 
+              icon="pi pi-filter-slash" 
+              outlined 
+              @click="resetFilters" 
+              v-tooltip.top="'Borrar filtro de fechas'"
+              :disabled="!dates"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -32,22 +84,22 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <KPICard 
           title="Volumen Total" 
-          :value="salesStore.totalVolume.toLocaleString() + ' m³'" 
+          :value="formatNum(salesStore.totalVolume, 1) + ' m³'" 
           icon="pi pi-chart-bar" 
           iconClass="text-brighter-green"
-          :subtitle="salesStore.volumeVariation !== 0 ? `${salesStore.volumeVariation > 0 ? '+' : ''}${salesStore.volumeVariation.toFixed(1)}% vs mes anterior` : ''"
+          :subtitle="salesStore.volumeVariation !== 0 ? `${salesStore.volumeVariation > 0 ? '+' : ''}${formatNum(salesStore.volumeVariation, 1)}% vs mes anterior` : ''"
         />
-        <KPICard title="Ventas Filtradas" :value="salesStore.filteredSales.length" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
+        <KPICard title="Ventas Filtradas" :value="formatNum(salesStore.filteredSales.length)" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
         <KPICard 
           title="Día Top Ventas" 
-          :value="salesStore.maxSalesDay ? salesStore.maxSalesDay.value.toLocaleString() + ' m³' : '---'" 
+          :value="salesStore.maxSalesDay ? formatNum(salesStore.maxSalesDay.value, 1) + ' m³' : '---'" 
           icon="pi pi-calendar-plus" 
           iconClass="text-pale-green"
           :subtitle="salesStore.maxSalesDay ? salesStore.maxSalesDay.date : ''"
         />
         <KPICard 
           title="Autoconsumo" 
-          :value="salesStore.selfConsumptionVolume.toLocaleString() + ' m³'" 
+          :value="formatNum(salesStore.selfConsumptionVolume, 1) + ' m³'" 
           icon="pi pi-sync" 
           iconClass="text-primary-green"
           subtitle="Gral. Hormigones S.A."
@@ -66,29 +118,33 @@
           <TabPanel value="0">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               <!-- 1. Ventas por Meses -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Meses</h3>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Meses</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Evolución del volumen de ventas agrupado por meses para detectar tendencias estacionales.</p>
                 <div class="h-96">
                   <BaseChartJS :config="monthChartConfig" />
                 </div>
               </div>
               <!-- 2. Ventas por Días -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Días</h3>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Días</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Visualización detallada de las fluctuaciones de carga diarias en el periodo seleccionado.</p>
                 <div class="h-96">
                   <BaseChartJS :config="dayChartConfig" />
                 </div>
               </div>
               <!-- 3. Ventas por Comunidad Autónoma -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Comunidad Autónoma</h3>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Comunidad Autónoma</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Distribución geográfica del volumen facturado por regiones administrativas.</p>
                 <div class="h-80">
-                  <BasePlotly :data="(salesStore.communityPlotlyData as any)" :layout="communityPlotlyLayout" />
+                  <BasePlotly :data="(salesStore.communityPlotlyData as any)" :layout="(communityPlotlyLayout as any)" />
                 </div>
               </div>
               <!-- 4. Ventas por Planta -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Ventas por Planta</h3>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Planta</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Comparativa de rendimiento entre las distintas plantas de producción operativas.</p>
                 <div class="h-96">
                   <BaseChartJS :config="plantaChartConfig" />
                 </div>
@@ -103,32 +159,32 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-8">
               <KPICard 
                 title="Nomenclaturas Únicas" 
-                :value="salesStore.uniqueNomenclaturesCount" 
+                :value="formatNum(salesStore.uniqueNomenclaturesCount)" 
                 icon="pi pi-tag" 
                 iconClass="text-primary-green" 
               />
               <KPICard 
                 title="Medio Cemento" 
-                :value="salesStore.averageCementContent.toFixed(1) + ' kg/m³'" 
+                :value="formatNum(salesStore.averageCementContent, 1) + ' kg/m³'" 
                 icon="pi pi-filter" 
                 iconClass="text-darker-green" 
               />
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Nomenclatura y Resistencia</h3>
-                <p class="text-sm text-gray-500 mb-4">Distribución del volumen por tipo de producto. Haga clic para filtrar.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Volumen por Nomenclatura y Resistencia</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Análisis proporcional del volumen despachado categorizado por familia de nomenclatura y resistencia característica.</p>
                 <div class="h-[500px]">
-                  <BasePlotly :data="(salesStore.formulaTreemapData as any)" :layout="treemapLayout" />
+                  <BasePlotly :data="(salesStore.formulaTreemapData as any)" :layout="(treemapLayout as any)" />
                 </div>
               </div>
               
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Contenido Cemento Real por Nomenclatura</h3>
-                <p class="text-sm text-gray-500 mb-4">Distribución del contenido de cemento real para cada nomenclatura.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Contenido Cemento Real por Nomenclatura</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Distribución estadística del pesaje real de cemento (kg/m³) para las dosificaciones de hormigón Armado (HA) y con Fibras (HAF).</p>
                 <div class="h-[500px]">
-                  <BasePlotly :data="(salesStore.formulaViolinData as any)" :layout="violinLayout" />
+                  <BasePlotly :data="(salesStore.formulaViolinData as any)" :layout="(violinLayout as any)" />
                 </div>
               </div>
             </div>
@@ -138,7 +194,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
               <KPICard 
                 title="Volumen Medio / Viaje" 
-                :value="salesStore.technicalKPIs.avgPerTrip.toFixed(2) + ' m³'" 
+                :value="formatNum(salesStore.technicalKPIs.avgPerTrip, 2) + ' m³'" 
                 icon="pi pi-truck" 
                 iconClass="text-blue-600" 
                 subtitle="Eficiencia promedio de carga"
@@ -148,22 +204,23 @@
                 :value="salesStore.topTransportista ? salesStore.topTransportista.name : '---'" 
                 icon="pi pi-truck" 
                 iconClass="text-medium-dark-green" 
-                :subtitle="salesStore.topTransportista ? salesStore.topTransportista.volume.toLocaleString() + ' m³' : ''"
+                :subtitle="salesStore.topTransportista ? formatNum(salesStore.topTransportista.volume, 1) + ' m³' : ''"
               />
               <KPICard 
                 title="Top Camión" 
                 :value="salesStore.topTruck ? salesStore.topTruck.matricula : '---'" 
                 icon="pi pi-id-card" 
                 iconClass="text-pale-green" 
-                :subtitle="salesStore.topTruck ? salesStore.topTruck.volume.toLocaleString() + ' m³' : ''"
+                :subtitle="salesStore.topTruck ? formatNum(salesStore.topTruck.volume, 1) + ' m³' : ''"
               />
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Gráfico de Transportistas -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Transportista</h3>
-                <div class="overflow-y-auto max-h-[600px] border border-gray-50 rounded-xl">
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Volumen por Transportista</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Desglose del volumen total por empresa transportista. Deslice para ver el listado completo.</p>
+                <div class="overflow-y-auto max-h-[600px] border border-gray-50 dark:border-gray-800 rounded-xl">
                   <div :style="{ height: transportistaChartHeight }">
                     <BaseChartJS :config="transportistaChartConfig" />
                   </div>
@@ -171,9 +228,10 @@
               </div>
 
               <!-- Gráfico de Matrículas -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Volumen por Matrícula</h3>
-                <div class="overflow-y-auto max-h-[600px] border border-gray-50 rounded-xl">
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Volumen por Matrícula</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Detalle de m³ transportados por cada vehículo registrado en el periodo.</p>
+                <div class="overflow-y-auto max-h-[600px] border border-gray-50 dark:border-gray-800 rounded-xl">
                   <div :style="{ height: matriculaChartHeight }">
                     <BaseChartJS :config="matriculaChartConfig" />
                   </div>
@@ -181,8 +239,9 @@
               </div>
 
               <!-- Treemap de Transporte -->
-              <div class="col-span-1 md:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <h3 class="text-lg font-bold text-gray-700 m-6 mb-4">Análisis Transportista > Matrícula</h3>
+              <div class="col-span-1 md:col-span-2 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 m-6 mb-4">Análisis Transportista > Matrícula</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 px-6 mb-6">Visualización jerárquica de la relación entre empresas de transporte y sus vehículos asociados.</p>
                 <div class="w-full h-[850px]">
                   <BasePlotly 
                     :data="(salesStore.transportTreeMapData as any)" 
@@ -196,27 +255,27 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 mb-8">
               <KPICard 
                 title="Clientes Únicos" 
-                :value="salesStore.uniqueClientsCount" 
+                :value="formatNum(salesStore.uniqueClientsCount)" 
                 icon="pi pi-users" 
                 iconClass="text-primary-green" 
               />
               <KPICard 
                 title="Volumen Top 1 Cliente" 
-                :value="salesStore.topClient.volume.toLocaleString() + ' m³'" 
+                :value="formatNum(salesStore.topClient.volume, 1) + ' m³'" 
                 icon="pi pi-star-fill" 
                 iconClass="text-medium-dark-green" 
                 :subtitle="salesStore.topClient.name"
               />
               <KPICard 
                 title="Volumen Top 3 Clientes" 
-                :value="salesStore.top3ClientsInfo.volume.toLocaleString() + ' m³'" 
+                :value="formatNum(salesStore.top3ClientsInfo.volume, 1) + ' m³'" 
                 icon="pi pi-chart-line" 
                 iconClass="text-pale-green" 
                 :subtitle="salesStore.top3ClientsInfo.names"
               />
               <KPICard 
                 title="Volumen Top 10 Clientes" 
-                :value="salesStore.top10ClientsInfo.volume.toLocaleString() + ' m³'" 
+                :value="formatNum(salesStore.top10ClientsInfo.volume, 1) + ' m³'" 
                 icon="pi pi-list" 
                 iconClass="text-darker-green" 
                 :subtitle="salesStore.top10ClientsInfo.names"
@@ -224,17 +283,17 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Concentración de Cartera (Top 10 vs Otros)</h3>
-                <p class="text-sm text-gray-500 mb-6">Visualice la dependencia de los clientes principales frente al resto de la cartera.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Concentración de Cartera (Top 10 vs Otros)</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Visualice la dependencia de los clientes principales frente al resto de la cartera.</p>
                 <div class="h-[500px]">
                   <BasePlotly :data="(concentrationChartData as any)" :layout="(concentrationLayout as any)" />
                 </div>
               </div>
 
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Matriz de Fidelización (Frecuencia vs Volumen)</h3>
-                <p class="text-sm text-gray-500 mb-6">Clasificación por hábito de compra. El tamaño de la burbuja es el promedio m³/pedido.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Matriz de Fidelización (Frecuencia vs Volumen)</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Clasificación por hábito de compra. El tamaño de la burbuja es el promedio m³/pedido.</p>
                 <div class="h-[500px]">
                   <BasePlotly :data="(bubbleChartData as any)" :layout="(bubbleLayout as any)" />
                 </div>
@@ -251,21 +310,21 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 mb-8">
               <KPICard 
                 title="Tiempo Máximo a Obra" 
-                :value="salesStore.technicalKPIs.maxTimeToSite.toFixed(0) + ' min'" 
+                :value="formatNum(salesStore.technicalKPIs.maxTimeToSite) + ' min'" 
                 icon="pi pi-map-marker" 
                 iconClass="text-orange-600" 
                 subtitle="Máximo tiempo de transporte"
               />
               <KPICard 
                 title="Tiempo Máximo Descarga" 
-                :value="salesStore.technicalKPIs.maxUnloadingTime.toFixed(0) + ' min'" 
+                :value="formatNum(salesStore.technicalKPIs.maxUnloadingTime) + ' min'" 
                 icon="pi pi-clock" 
                 iconClass="text-blue-600" 
                 subtitle="Máximo tiempo en obra"
               />
               <KPICard 
                 title="Nº Descargas Tardías" 
-                :value="salesStore.technicalKPIs.lateUnloadingsCount.toLocaleString()" 
+                :value="formatNum(salesStore.technicalKPIs.lateUnloadingsCount)" 
                 icon="pi pi-exclamation-triangle" 
                 iconClass="text-red-600" 
                 subtitle="Exceso sobre límite de uso"
@@ -274,18 +333,18 @@
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <!-- Gráfico de Eficiencia -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Eficiencia Logística por Planta (Tiempo Viaje vs Descarga)</h3>
-                <p class="text-sm text-gray-500 mb-6">El tamaño de la burbuja indica el número de descargas tardías. Cuanto más arriba y a la derecha, mayores son los tiempos máximos.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Eficiencia Logística por Planta (Tiempo Viaje vs Descarga)</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">El tamaño de la burbuja indica el número de descargas tardías. Cuanto más arriba y a la derecha, mayores son los tiempos máximos.</p>
                 <div class="h-[500px]">
                   <BasePlotly :data="(technicalBubbleChartData as any)" :layout="(technicalBubbleLayout as any)" />
                 </div>
               </div>
 
               <!-- Heatmap de Demanda -->
-              <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-bold text-gray-700 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
-                <p class="text-sm text-gray-500 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
+              <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+                <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Evolución Semanal de la Demanda (Heatmap)</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Visualización de la intensidad de carga por día y semana del año.</p>
                 <div :style="{ height: heatmapChartHeight }">
                   <BasePlotly :data="(heatmapChartData as any)" :layout="(heatmapLayout as any)" />
                 </div>
@@ -296,15 +355,15 @@
       </Tabs>
     </div>
 
-    <div v-else class="text-center p-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-      <i class="pi pi-cloud-upload text-6xl text-gray-300 mb-4"></i>
-      <h2 class="text-xl font-bold text-gray-400">Sube un archivo para comenzar el análisis</h2>
+    <div v-else class="text-center p-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 transition-colors duration-300">
+      <i class="pi pi-cloud-upload text-6xl text-gray-300 dark:text-gray-700 mb-4"></i>
+      <h2 class="text-xl font-bold text-gray-400 dark:text-gray-500">Sube un archivo para comenzar el análisis</h2>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useSalesStore } from '../../application/useSalesStore'
 import { ExcelService } from '../../infrastructure/services/ExcelService'
 import type { ChartConfiguration } from 'chart.js'
@@ -313,6 +372,8 @@ import CustomerSalesTable from '../components/CustomerSalesTable.vue';
 import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
+// @ts-ignore
+import tailwindConfig from '../../../tailwind.config.js'
 import Tabs from 'primevue/tabs';
 import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
@@ -326,12 +387,74 @@ import { useToast } from 'primevue/usetoast';
 const toast = useToast();
 
 const salesStore = useSalesStore()
+const twColors = (tailwindConfig as any).theme.extend.colors;
+const formatNum = (val: number | string | undefined | null, decimals: number = 0) => {
+  if (val === undefined || val === null || val === '') return '---'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(num)) return val.toString()
+  return new Intl.NumberFormat('es-ES', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  }).format(num)
+}
+
 const dates = ref<Date[] | null>(null)
+const isDark = ref(false)
+const missingCols = ref<string[]>([])
+
+const toggleDarkMode = () => {
+  isDark.value = !isDark.value
+  
+  // 1. Aplicar clase bloqueadora de transiciones de forma inmediata
+  document.documentElement.classList.add('no-transitions')
+  
+  // 2. Forzar un recálculo de estilos antes de cambiar el tema
+  void document.documentElement.offsetHeight;
+  
+  // 3. Cambiar el tema
+  updateTheme()
+  
+  // 4. Forzar otro recálculo para asegurar que el nuevo tema se pinta sin transiciones
+  void document.documentElement.offsetHeight;
+  
+  // 5. Esperar al siguiente frame para devolver el control a las transiciones
+  // Esto garantiza que el usuario vea el cambio como un "salto" instantáneo
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.documentElement.classList.remove('no-transitions')
+    })
+  })
+}
+
+const updateTheme = () => {
+  if (isDark.value) {
+    document.documentElement.classList.add('app-dark')
+    localStorage.setItem('theme', 'dark')
+  } else {
+    document.documentElement.classList.remove('app-dark')
+    localStorage.setItem('theme', 'light')
+  }
+}
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme) {
+    isDark.value = savedTheme === 'dark'
+  } else {
+    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
+  updateTheme()
+})
 
 const handleFileUpload = async (event: Event) => {
   const input = event.target as HTMLInputElement
   if (input.files && input.files[0]) {
     salesStore.isLoading = true
+    salesStore.setFileError(null)
+    salesStore.setSales([]) // Limpiar datos previos inmediatamente
+    resetFilters() // Limpiar filtros previos
+    missingCols.value = []
+    
     try {
       const sales = await ExcelService.processFile(input.files[0])
       salesStore.setSales(sales)
@@ -343,12 +466,17 @@ const handleFileUpload = async (event: Event) => {
       });
     } catch (error: any) {
       console.error(error)
-      toast.add({ 
-        severity: 'error', 
-        summary: 'Error de Carga', 
-        detail: error.message || 'Error desconocido al procesar el archivo', 
-        life: 5000 
-      });
+      if (error.type === 'INVALID_HEADER') {
+        salesStore.setFileError(error.message)
+        missingCols.value = error.details || []
+      } else {
+        toast.add({ 
+          severity: 'error', 
+          summary: 'Error de Carga', 
+          detail: error.message || 'Error desconocido al procesar el archivo', 
+          life: 5000 
+        });
+      }
     } finally {
       salesStore.isLoading = false
     }
@@ -388,13 +516,13 @@ const plantaChartConfig = computed<ChartConfiguration>(() => {
                 {
                     label: 'm³',
                     data: Object.values(salesStore.volumeByPlanta),
-                    backgroundColor: '#4B7F61'
+                    backgroundColor: twColors['medium-dark-green']
                 },
                 {
                     label: `Media (${salesStore.averageVolumeByPlanta.toFixed(1)} m³)`,
                     data: new Array(Object.keys(salesStore.volumeByPlanta).length).fill(salesStore.averageVolumeByPlanta),
                     type: 'line',
-                    borderColor: '#D42E12',
+                    borderColor: twColors['primary-red'],
                     borderDash: [5, 5],
                     pointStyle: false,
                     fill: false
@@ -403,7 +531,16 @@ const plantaChartConfig = computed<ChartConfiguration>(() => {
         },
         options: { 
           responsive: true, 
-          maintainAspectRatio: false 
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: {
+                autoSkip: false,
+                maxRotation: 45,
+                minRotation: 45
+              }
+            }
+          }
         }
     }
 })
@@ -417,13 +554,13 @@ const dayChartConfig = computed<ChartConfiguration>(() => {
                 {
                     label: 'Ventas Diarias',
                     data: salesStore.salesByDay.values,
-                    borderColor: '#004730',
+                    borderColor: twColors['primary-green'],
                     tension: 0.1
                 },
                 {
                     label: `Media Diaria (${salesStore.averageSalesByDay.toFixed(1)} m³)`,
                     data: new Array(salesStore.salesByDay.labels.length).fill(salesStore.averageSalesByDay),
-                    borderColor: '#D42E12',
+                    borderColor: twColors['primary-red'],
                     borderDash: [5, 5],
                     pointStyle: false,
                     fill: false
@@ -446,13 +583,13 @@ const monthChartConfig = computed<ChartConfiguration>(() => {
                 {
                     label: 'Volumen Mensual (m³)',
                     data: salesStore.salesByMonth.values,
-                    backgroundColor: '#1A664B'
+                    backgroundColor: twColors['darker-green']
                 },
                 {
                     label: `Media Mensual (${salesStore.averageSalesByMonth.toFixed(1)} m³)`,
                     data: new Array(salesStore.salesByMonth.labels.length).fill(salesStore.averageSalesByMonth),
                     type: 'line',
-                    borderColor: '#D42E12',
+                    borderColor: twColors['primary-red'],
                     borderDash: [5, 5],
                     pointStyle: false,
                     fill: false
@@ -477,7 +614,7 @@ const transportistaChartConfig = computed<ChartConfiguration>(() => {
             datasets: [{
                 label: 'm³ Facturados',
                 data: Object.values(data).map((v: any) => v.volume),
-                backgroundColor: '#1A664B',
+                backgroundColor: twColors['darker-green'],
                 barThickness: 12
             }]
         },
@@ -519,7 +656,7 @@ const matriculaChartConfig = computed<ChartConfiguration>(() => {
             datasets: [{
                 label: 'm³ Facturados',
                 data: Object.values(data).map((v: any) => v.volume),
-                backgroundColor: '#4B7F61',
+                backgroundColor: twColors['medium-dark-green'],
                 barThickness: 12
             }]
         },
@@ -576,7 +713,7 @@ const concentrationChartData = computed(() => {
       type: 'pie',
       hole: 0.5,
       marker: {
-        colors: ['#004730', '#4B7F61']
+        colors: [twColors['primary-green'], twColors['medium-dark-green']]
       },
       textinfo: 'label+percent',
       hoverinfo: 'label+value+percent',
@@ -585,15 +722,24 @@ const concentrationChartData = computed(() => {
   ];
 });
 
-const concentrationLayout = {
+const concentrationLayout = computed(() => ({
   autosize: true,
   margin: { t: 40, l: 20, r: 20, b: 40 },
   showlegend: true,
-  legend: { orientation: 'h' as any, y: -0.1, x: 0.5, xanchor: 'center' as any },
+  legend: { 
+    orientation: 'h' as any, 
+    y: -0.1, 
+    x: 0.5, 
+    xanchor: 'center' as any,
+    font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+  },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
-  font: { family: 'Inter, sans-serif' }
-}
+  font: { 
+    family: 'Outfit, sans-serif', 
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] 
+  }
+}));
 
 const bubbleChartData = computed(() => {
   const data = salesStore.customerLoyaltyData;
@@ -613,30 +759,41 @@ const bubbleChartData = computed(() => {
         showscale: true,
         reversescale: true,
         opacity: 0.7,
-        line: { width: 1, color: '#fff' }
+        line: { width: 1, color: twColors['brand-gray'][0] }
       }
     }
   ];
 });
 
-const bubbleLayout = {
+const bubbleLayout = computed(() => ({
   autosize: true,
   margin: { t: 40, l: 60, r: 20, b: 60 },
   hovermode: 'closest' as any,
   xaxis: {
-    title: { text: 'Frecuencia (Número de Pedidos)' },
-    gridcolor: '#f0f0f0',
+    title: { 
+      text: 'Frecuencia (Número de Pedidos)',
+      font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
     zeroline: false
   },
   yaxis: {
-    title: { text: 'Volumen Total (m³)' },
-    gridcolor: '#f0f0f0',
+    title: { 
+      text: 'Volumen Total (m³)',
+      font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
     zeroline: false
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor: 'rgba(249, 250, 251, 0.5)',
-  font: { family: 'Inter, sans-serif' }
-}
+  plot_bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
+  font: { 
+    family: 'Outfit, sans-serif',
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
+  }
+}));
 
 const heatmapChartData = computed(() => {
   const data = salesStore.technicalHeatmapData;
@@ -678,99 +835,136 @@ const technicalBubbleChartData = computed(() => {
         showscale: true,
         reversescale: true,
         opacity: 0.7,
-        line: { width: 1, color: '#fff' }
+        line: { width: 1, color: twColors['brand-gray'][0] }
       }
     }
   ];
 });
 
-const technicalBubbleLayout = {
+const technicalBubbleLayout = computed(() => ({
   autosize: true,
   margin: { t: 40, l: 60, r: 20, b: 60 },
   hovermode: 'closest' as any,
   xaxis: {
-    title: { text: 'T. Máximo a Obra (min)' },
-    gridcolor: '#f0f0f0',
+    title: { 
+      text: 'T. Máximo a Obra (min)',
+      font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
     zeroline: false
   },
   yaxis: {
-    title: { text: 'T. Máximo Descarga (min)' },
-    gridcolor: '#f0f0f0',
+    title: { 
+      text: 'T. Máximo Descarga (min)',
+      font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
     zeroline: false
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor: 'rgba(249, 250, 251, 0.5)',
-  font: { family: 'Inter, sans-serif' }
-}
+  plot_bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
+  font: { 
+    family: 'Outfit, sans-serif',
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
+  }
+}));
 
-const heatmapLayout = {
+const heatmapLayout = computed(() => ({
   autosize: true,
   margin: { t: 60, l: 120, r: 20, b: 60 },
   xaxis: {
-    title: { text: 'Día de la Semana', standoff: 20 },
+    title: { 
+        text: 'Día de la Semana', 
+        standoff: 20,
+        font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
     side: 'top' as any,
-    fixedrange: true
+    fixedrange: true,
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
   },
   yaxis: {
-    title: { text: 'Semanas', standoff: 20 },
+    title: { 
+        text: 'Semanas', 
+        standoff: 20,
+        font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
     autorange: 'reversed',
     fixedrange: true,
-    dtick: 1
+    dtick: 1,
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
-  font: { family: 'Inter, sans-serif' }
-}
+  font: { 
+    family: 'Outfit, sans-serif',
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
+  }
+}));
 
-const treemapLayout = {
+const treemapLayout = computed(() => ({
   autosize: true,
   margin: { t: 30, l: 0, r: 0, b: 0 },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { 
-    family: 'Inter, sans-serif',
+    family: 'Outfit, sans-serif',
     size: 12,
-    color: '#333'
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][800]
   },
   hoverlabel: {
-    bgcolor: '#FFF',
-    font: { family: 'Inter, sans-serif', size: 14 }
+    bgcolor: isDark.value ? twColors['brand-gray'][800] : twColors['brand-gray'][0],
+    font: { family: 'Outfit, sans-serif', size: 14, color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][800] }
   }
-}
+}));
 
-const communityPlotlyLayout = {
+const communityPlotlyLayout = computed(() => ({
   autosize: true,
   margin: { t: 40, l: 40, r: 40, b: 40 },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
-  font: { family: 'Inter, sans-serif' },
+  font: { 
+    family: 'Outfit, sans-serif',
+    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
+  },
   polar: {
-    bgcolor: 'rgba(249, 250, 251, 0.5)',
+    bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
     angularaxis: {
-      gridcolor: '#eee',
-      linecolor: '#eee'
+      gridcolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
+      linecolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
+      tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
     },
     radialaxis: {
-      gridcolor: '#eee',
-      linecolor: '#eee',
-      side: 'counterclockwise' as any
+      gridcolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
+      linecolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
+      side: 'counterclockwise' as any,
+      tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
     }
   },
   showlegend: false,
-}
+}));
 
-const violinLayout = {
+const violinLayout = computed(() => ({
   margin: { t: 30, l: 60, r: 30, b: 80 },
   paper_bgcolor: 'rgba(0,0,0,0)',
   plot_bgcolor: 'rgba(0,0,0,0)',
   yaxis: {
-    title: { text: 'Cemento (kg/m³)' },
+    title: { 
+      text: 'Cemento (kg/m³)',
+      font: { color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] }
+    },
     zeroline: false,
-    gridcolor: '#f0f0f0'
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
   },
   xaxis: {
-    tickangle: 45
+    type: 'category',
+    tickmode: 'linear',
+    dtick: 1,
+    tickangle: 45,
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
   },
   showlegend: false
-}
+}));
 </script>

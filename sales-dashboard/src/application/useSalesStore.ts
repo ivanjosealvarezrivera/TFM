@@ -1,10 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Sale, SalesFilters } from '../core/entities/Sale'
+// @ts-ignore
+import tailwindConfig from '../../tailwind.config.js'
 
 export const useSalesStore = defineStore('sales', () => {
+  const twColors = (tailwindConfig as any).theme.extend.colors;
   const rawSales = ref<Sale[]>([])
   const isLoading = ref(false)
+  const fileError = ref<string | null>(null)
   
   const filters = ref<SalesFilters>({
     startDate: null,
@@ -52,31 +56,114 @@ export const useSalesStore = defineStore('sales', () => {
     })
   })
 
-  const totalVolume = computed(() => {
-    return filteredSales.value.reduce((acc, sale) => acc + sale.cantidad, 0)
+  const mainAggregates = computed(() => {
+    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const byDay: Record<string, number> = {}
+    const byMonth: Record<string, number> = {}
+    const byPlanta: Record<string, number> = {}
+    const byCommunity: Record<string, number> = {}
+    const nomenclatures = new Set<string>()
+    let totalVol = 0
+    let selfVol = 0
+    let totalCem = 0
+    let validCemCount = 0
+
+    filteredSales.value.forEach(sale => {
+      totalVol += sale.cantidad
+      
+      // By Planta & Community
+      byPlanta[sale.planta] = (byPlanta[sale.planta] || 0) + sale.cantidad
+      byCommunity[sale.comunidad] = (byCommunity[sale.comunidad] || 0) + sale.cantidad
+      
+      // By Day
+      byDay[sale.fecha] = (byDay[sale.fecha] || 0) + sale.cantidad
+      
+      // By Month
+      const year = sale.fecha.substring(0, 4)
+      const monthIdx = parseInt(sale.fecha.substring(5, 7)) - 1
+      const monthKey = `${months[monthIdx]} ${year}`
+      byMonth[monthKey] = (byMonth[monthKey] || 0) + sale.cantidad
+
+      // Formula & Cement
+      nomenclatures.add(sale.nomenclatura)
+      if (sale.contenidoCementoReal) {
+        totalCem += sale.contenidoCementoReal
+        validCemCount++
+      }
+
+      // Self consumption
+      if (sale.nombreCliente.includes('GENERAL DE HORMIGONES, S.A.')) {
+        selfVol += sale.cantidad
+      }
+    })
+
+    // Sort mappings
+    const sortedDays = Object.keys(byDay).sort()
+    const sortedMonths = Object.entries(byMonth).sort((a, b) => {
+      const partsA = a[0].split(' ')
+      const partsB = b[0].split(' ')
+      const dateA = new Date(parseInt(partsA[1]!), months.indexOf(partsA[0]!)).getTime()
+      const dateB = new Date(parseInt(partsB[1]!), months.indexOf(partsB[0]!)).getTime()
+      return dateA - dateB
+    })
+
+    // Max sales day calculation
+    let maxDayDate = ''
+    let maxDayValue = 0
+    Object.entries(byDay).forEach(([date, value]) => {
+      if (value > maxDayValue) {
+        maxDayValue = value
+        maxDayDate = date
+      }
+    })
+
+    let maxDayLabel = null
+    if (maxDayDate) {
+      const [y, m, d] = maxDayDate.split('-')
+      maxDayLabel = { date: `${d}/${m}/${y}`, value: maxDayValue }
+    }
+
+    return {
+      totalVolume: totalVol,
+      volumeByPlanta: byPlanta,
+      volumeByCommunity: byCommunity,
+      byDay: {
+        labels: sortedDays.map(k => {
+          const [y, m, d] = k.split('-')
+          return `${d}/${m}/${y}`
+        }),
+        values: sortedDays.map(k => byDay[k]!)
+      },
+      byMonth: {
+        labels: sortedMonths.map(e => e[0]),
+        values: sortedMonths.map(e => e[1]!)
+      },
+      selfConsumptionVolume: selfVol,
+      averageCement: validCemCount > 0 ? totalCem / validCemCount : 0,
+      uniqueNomenclaturesCount: nomenclatures.size,
+      maxSalesDay: maxDayLabel
+    }
   })
+
+  // Exponer propiedades individuales derivadas para mantener compatibilidad
+  const totalVolume = computed(() => mainAggregates.value.totalVolume)
+  const volumeByPlanta = computed(() => mainAggregates.value.volumeByPlanta)
+  const volumeByCommunity = computed(() => mainAggregates.value.volumeByCommunity)
+  const salesByDay = computed(() => mainAggregates.value.byDay)
+  const salesByMonth = computed(() => mainAggregates.value.byMonth)
+  const selfConsumptionVolume = computed(() => mainAggregates.value.selfConsumptionVolume)
+  const averageCementContent = computed(() => mainAggregates.value.averageCement)
+  const uniqueNomenclaturesCount = computed(() => mainAggregates.value.uniqueNomenclaturesCount)
+  const maxSalesDay = computed(() => mainAggregates.value.maxSalesDay)
 
   const prevTotalVolume = computed(() => {
     return prevPeriodSales.value.reduce((acc, sale) => acc + sale.cantidad, 0)
   })
 
   const volumeVariation = computed(() => {
-    if (prevTotalVolume.value === 0) return 0
-    return ((totalVolume.value - prevTotalVolume.value) / prevTotalVolume.value) * 100
-  })
-
-  const volumeByPlanta = computed(() => {
-    return filteredSales.value.reduce((acc: Record<string, number>, sale) => {
-      acc[sale.planta] = (acc[sale.planta] || 0) + sale.cantidad
-      return acc
-    }, {})
-  })
-
-  const volumeByCommunity = computed(() => {
-    return filteredSales.value.reduce((acc: Record<string, number>, sale) => {
-      acc[sale.comunidad] = (acc[sale.comunidad] || 0) + sale.cantidad
-      return acc
-    }, {})
+    const prev = prevTotalVolume.value
+    if (prev === 0) return 0
+    return ((totalVolume.value - prev) / prev) * 100
   })
 
   const communityPlotlyData = computed(() => {
@@ -92,87 +179,10 @@ export const useSalesStore = defineStore('sales', () => {
         color: values,
         colorscale: 'Greens',
         reversescale: true,
-        line: { width: 1, color: 'white' }
+        line: { width: 1, color: twColors['brand-gray'][0] }
       },
       hovertemplate: '<b>%{theta}</b><br>Volumen: %{r:,.0f} m³<extra></extra>'
     }]
-  })
-
-  const salesByDay = computed(() => {
-    const data = filteredSales.value.reduce((acc: Record<string, number>, sale) => {
-      const d = sale.fecha // Ya es YYYY-MM-DD
-      acc[d] = (acc[d] || 0) + sale.cantidad
-      return acc
-    }, {})
-    
-    const sortedKeys = Object.keys(data).sort()
-    return {
-      labels: sortedKeys.map(k => {
-        const [y, m, d] = k.split('-')
-        return `${d}/${m}/${y}`
-      }),
-      values: sortedKeys.map(k => data[k] ?? 0)
-    }
-  })
-
-  const salesByMonth = computed(() => {
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const data = filteredSales.value.reduce((acc: Record<string, number>, sale) => {
-      const date = new Date(sale.fecha)
-      const key = `${months[date.getMonth()]} ${date.getFullYear()}`
-      acc[key] = (acc[key] || 0) + sale.cantidad
-      return acc
-    }, {})
-
-    const sortedEntries = Object.entries(data).sort((a, b) => {
-      const partsA = a[0].split(' ')
-      const partsB = b[0].split(' ')
-      const mA = partsA[0] || ''
-      const yA = partsA[1] || '0'
-      const mB = partsB[0] || ''
-      const yB = partsB[1] || '0'
-      
-      const dateA = new Date(parseInt(yA), months.indexOf(mA))
-      const dateB = new Date(parseInt(yB), months.indexOf(mB))
-      return dateA.getTime() - dateB.getTime()
-    })
-
-    return {
-      labels: sortedEntries.map(e => e[0]),
-      values: sortedEntries.map(e => e[1])
-    }
-  })
-
-  // Nuevos KPIs de Negocio
-  const maxSalesDay = computed(() => {
-    const data = filteredSales.value.reduce((acc: Record<string, number>, sale) => {
-      acc[sale.fecha] = (acc[sale.fecha] || 0) + sale.cantidad
-      return acc
-    }, {})
-    
-    let maxDate = ''
-    let maxValue = 0
-    
-    Object.entries(data).forEach(([date, value]) => {
-      if (value > maxValue) {
-        maxValue = value
-        maxDate = date
-      }
-    })
-
-    if (!maxDate) return null
-    
-    const [y, m, d] = maxDate.split('-')
-    return {
-      date: `${d}/${m}/${y}`,
-      value: maxValue
-    }
-  })
-
-  const selfConsumptionVolume = computed(() => {
-    return filteredSales.value
-      .filter(sale => sale.nombreCliente.includes('GENERAL DE HORMIGONES, S.A.'))
-      .reduce((acc, sale) => acc + sale.cantidad, 0)
   })
 
   // Cálculos de Medias para Gráficos
@@ -185,26 +195,13 @@ export const useSalesStore = defineStore('sales', () => {
   const averageSalesByDay = computed(() => {
     const values = salesByDay.value.values
     if (values.length === 0) return 0
-    return values.reduce((a, b) => a + b, 0) / values.length
+    return (values as number[]).reduce((a, b) => a + b, 0) / values.length
   })
 
   const averageSalesByMonth = computed(() => {
     const values = salesByMonth.value.values
     if (values.length === 0) return 0
-    return values.reduce((a, b) => a + b, 0) / values.length
-  })
-
-  // --- Análisis de Fórmulas ---
-  
-  const uniqueNomenclaturesCount = computed(() => {
-    const nomenclatures = new Set(filteredSales.value.map(s => s.nomenclatura))
-    return nomenclatures.size
-  })
-
-  const averageCementContent = computed(() => {
-    if (filteredSales.value.length === 0) return 0
-    const totalCement = filteredSales.value.reduce((acc, s) => acc + (s.contenidoCementoReal || 0), 0)
-    return totalCement / filteredSales.value.length
+    return (values as number[]).reduce((a, b) => a + b, 0) / values.length
   })
 
   const formulaTreemapData = computed(() => {
@@ -266,10 +263,10 @@ export const useSalesStore = defineStore('sales', () => {
     })
 
     const sortedEntries = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-    const greenPalette = ['#004730', '#1A664B', '#2D8A66', '#4B7F61', '#6BA285', '#8CC2A2', '#B7D4C0'];
+    const greenPalette = twColors['chart-greens'];
 
     return sortedEntries.map(([nom, values], index) => {
-      const color = greenPalette[index % greenPalette.length] || '#004730';
+      const color = greenPalette[index % greenPalette.length] || twColors['primary-green'];
       return {
         type: 'violin',
         y: values,
@@ -415,7 +412,7 @@ export const useSalesStore = defineStore('sales', () => {
       marker: {
         colorscale: 'Greens',
         reversescale: true,
-        line: { width: 2, color: 'white' }
+        line: { width: 2, color: twColors['brand-gray'][0] }
       }
     }];
   })
@@ -774,7 +771,11 @@ export const useSalesStore = defineStore('sales', () => {
     technicalKPIsByPlant,
     pivotData,
     isLoading,
+    fileError,
     setSales,
-    setFilters
+    setFilters,
+    setFileError(error: string | null) {
+      fileError.value = error
+    }
   }
 })

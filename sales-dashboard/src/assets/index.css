@@ -1,17 +1,205 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@config "../../tailwind.config.js";
 
-/* 
-  Definición de tema para Tailwind 4. 
-  Esto asegura que las clases como bg-primary-green funcionen correctamente
-  y permite usar las variables en los componentes de PrimeVue.
-*/
-@theme {
-  --color-primary-green: #004730;
-  --color-darker-green: #1A664B;
-  --color-medium-dark-green: #4B7F61;
-  --color-pale-green: #8CC2A2;
-  --color-lighter-pale-green: #B7D4C0;
-  --color-light-greenish-bg: #F0F4F0;
-  --color-primary-red: #D42E12;
-  --color-brighter-green: #22C55E;
+:root {
+  font-family: 'Outfit', system-ui, sans-serif;
+  background-color: theme('colors.light-greenish-bg');
+  color: theme('colors.gray-brand');
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Silenciador absoluto de transiciones y animaciones */
+html.no-transitions,
+html.no-transitions *,
+html.no-transitions *:before,
+html.no-transitions *:after {
+  -webkit-transition: none !important;
+  -moz-transition: none !important;
+  -ms-transition: none !important;
+  -o-transition: none !important;
+  transition: none !important;
+  -webkit-animation: none !important;
+  -moz-animation: none !important;
+  -o-animation: none !important;
+  animation: none !important;
+}
+
+html.app-dark,
+.app-dark body {
+  background-color: theme('colors.brand-gray.950') !important;
+  color: theme('colors.brand-gray.50') !important;
+}
+
+.app-dark {
+  color-scheme: dark;
+}
+
+/* Overrides para asegurar visibilidad en modo oscuro usando variables Tailwind */
+.app-dark .p-tablist-tablist,
+.app-dark .p-tablist,
+.app-dark .p-tabs,
+.app-dark .p-tabpanels,
+.app-dark .p-tabpanel {
+  background-color: theme('colors.brand-gray.950') !important;
+  border-color: theme('colors.surface-dark.800') !important;
+}
+
+.app-dark .p-tab {
+  color: theme('colors.brand-gray.400') !important;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.app-dark .p-tab:hover {
+  color: theme('colors.brand-gray.100') !important;
+}
+
+.app-dark .p-tab-active {
+  color: theme('colors.pale-green') !important;
+  font-weight: 800 !important;
+}
+
+/* Indicador de pestaña activa */
+.app-dark .p-tablist-active-bar {
+  background-color: theme('colors.pale-green') !important;
+  height: 3px !important;
+}
+
+.app-dark .p-datepicker-input,
+.app-dark .p-datepicker input {
+  background-color: theme('colors.brand-gray.900') !important;
+  color: theme('colors.brand-gray.50') !important;
+  border-color: theme('colors.brand-gray.800') !important;
+}
+
+.app-dark .p-datepicker-input::placeholder {
+  color: var(--color-brand-gray-500) !important;
+}
+
+/* Fix para Select / Dropdown en modo oscuro */
+.app-dark .p-select-panel,
+.app-dark .p-dropdown-panel,
+.app-dark .p-select-overlay,
+.app-dark .p-popover {
+  background-color: theme('colors.brand-gray.900') !important;
+  border-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.brand-gray.50') !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+.app-dark .p-select-option {
+  color: var(--color-brand-gray-300) !important;
+  transition: background-color 0.2s;
+}
+
+.app-dark .p-select-option:hover,
+.app-dark .p-select-option.p-focus {
+  background-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.white') !important;
+}
+
+.app-dark .p-select-option.p-select-option-selected {
+  background-color: theme('colors.brand-gray.700') !important;
+  color: theme('colors.pale-green') !important;
+}
+
+/* Overrides globales para PrimeVue DataTable en Modo Oscuro */
+.app-dark .p-datatable {
+  background-color: theme('colors.brand-gray.950') !important;
+  color: theme('colors.brand-gray.50') !important;
+}
+
+.app-dark .p-datatable .p-datatable-thead > tr > th {
+  background-color: theme('colors.brand-gray.900') !important;
+  color: theme('colors.brand-gray.50') !important;
+  border-bottom-color: theme('colors.brand-gray.800') !important;
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr {
+  background-color: theme('colors.brand-gray.950') !important;
+  color: theme('colors.brand-gray.200') !important;
+}
+
+.app-dark .p-datatable.p-datatable-striped .p-datatable-tbody > tr.p-row-odd {
+  background-color: theme('colors.brand-gray.900') !important;
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr:hover {
+  background-color: theme('colors.darker-green') !important;
+  color: white !important;
+}
+
+.app-dark .p-datatable .p-datatable-tbody > tr > td {
+  border-bottom-color: theme('colors.brand-gray.800') !important;
+}
+
+.app-dark .p-datatable .p-datatable-tfoot > tr > td {
+  background-color: theme('colors.brand-gray.900') !important;
+  color: theme('colors.brand-gray.50') !important;
+  border-top-color: theme('colors.brand-gray.800') !important;
+}
+
+/* Fix para paginador */
+.app-dark .p-paginator {
+  background-color: theme('colors.brand-gray.950') !important;
+  border-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.brand-gray.400') !important;
+}
+
+.app-dark .p-paginator .p-paginator-page,
+.app-dark .p-paginator .p-paginator-next,
+.app-dark .p-paginator .p-paginator-last,
+.app-dark .p-paginator .p-paginator-first,
+.app-dark .p-paginator .p-paginator-prev {
+  color: theme('colors.brand-gray-400') !important;
+}
+
+.app-dark .p-paginator .p-paginator-page.p-highlight {
+  background-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.brand-gray.50') !important;
+}
+
+.app-dark .p-paginator .p-select .p-select-label {
+  color: theme('colors.brand-gray.50') !important;
+}
+
+/* Fix definitivo para el selector de filas (Rows Per Page) */
+.app-dark .p-select,
+.app-dark .p-dropdown,
+.app-dark .p-paginator-rpp-options,
+.app-dark .p-paginator .p-select,
+.app-dark .p-paginator .p-dropdown {
+  background-color: theme('colors.brand-gray.900') !important;
+  border-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.brand-gray.50') !important;
+}
+
+.app-dark .p-select:not(.p-disabled).p-focus,
+.app-dark .p-dropdown:not(.p-disabled).p-focus {
+  border-color: theme('colors.pale-green') !important;
+  box-shadow: 0 0 0 1px theme('colors.pale-green') !important;
+}
+
+.app-dark .p-select-label,
+.app-dark .p-dropdown-label {
+  color: theme('colors.brand-gray.50') !important;
+}
+
+.app-dark .p-select-header,
+.app-dark .p-dropdown-header {
+  background-color: theme('colors.brand-gray.900') !important;
+  border-bottom-color: theme('colors.brand-gray.800') !important;
+}
+
+.app-dark .p-select-filter,
+.app-dark .p-dropdown-filter {
+  background-color: theme('colors.brand-gray.800') !important;
+  color: theme('colors.brand-gray.50') !important;
+  border-color: theme('colors.brand-gray.700') !important;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
 }

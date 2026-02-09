@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-      <h3 class="text-lg font-bold text-gray-700">Matriz de Ventas por Planta (m³)</h3>
-      <span class="text-sm text-gray-500 font-medium">{{ data.rows.length }} días registrados</span>
+  <div class="bg-white dark:bg-brand-gray-950 rounded-2xl shadow-sm border border-brand-gray-100 dark:border-brand-gray-800 overflow-hidden transition-colors duration-300">
+    <div class="p-6 border-b border-brand-gray-100 dark:border-brand-gray-800 flex justify-between items-center bg-brand-gray-50/50 dark:bg-brand-gray-800/50">
+      <h3 class="text-lg font-bold text-brand-gray-700 dark:text-brand-gray-200">Matriz de Ventas por Planta (m³)</h3>
+      <span class="text-sm text-brand-gray-500 dark:text-brand-gray-400 font-medium">{{ data.rows.length }} días registrados</span>
     </div>
     
     <DataTable 
@@ -16,7 +16,7 @@
     >
       <Column field="date" header="Fecha" sortable class="min-w-[90px]">
         <template #body="{ data }">
-          <span class="font-bold text-slate-900 text-[10px]">{{ data.date }}</span>
+          <span class="font-bold text-slate-900 dark:text-brand-gray-100 text-[10px]">{{ data.date }}</span>
         </template>
       </Column>
       
@@ -27,23 +27,23 @@
           </div>
         </template>
         <template #body="{ data }">
-          <span :class="data[plant] > 0 ? 'text-slate-700 font-medium' : 'text-slate-300 font-light'" class="text-[10px]">
+          <span :class="data[plant] > 0 ? 'text-slate-700 dark:text-brand-gray-200 font-medium' : 'text-slate-300 dark:text-brand-gray-600 font-light'" class="text-[10px]">
             {{ data[plant] > 0 ? data[plant].toFixed(1) : '-' }}
           </span>
         </template>
       </Column>
       
-      <Column field="total" header="Total" sortable class="text-right min-w-[80px] bg-emerald-50/50">
+      <Column field="total" header="Total" sortable class="text-right min-w-[80px] bg-emerald-50/50 dark:bg-emerald-950/20">
         <template #body="{ data }">
-          <span class="font-black text-emerald-900 text-[10px]">{{ data.total.toFixed(1) }}</span>
+          <span class="font-black text-emerald-900 dark:text-emerald-400 text-[10px]">{{ data.total.toFixed(1) }}</span>
         </template>
       </Column>
 
       <template #footer v-if="data.plantTotals">
-        <div class="flex items-center justify-between p-2 px-6 bg-slate-50 font-bold text-xs uppercase tracking-wider text-slate-600">
+        <div class="flex items-center justify-between p-2 px-6 bg-slate-50 dark:bg-gray-800 font-bold text-xs uppercase tracking-wider text-slate-600 dark:text-gray-300">
           <span>Totales Generales</span>
           <div class="flex gap-8">
-            <span class="text-emerald-700">Total Volumen: {{ data.grandTotal?.toLocaleString() }} m³</span>
+            <span class="text-emerald-700 dark:text-emerald-400">Total Volumen: {{ data.grandTotal?.toLocaleString() }} m³</span>
           </div>
         </div>
       </template>
@@ -66,20 +66,12 @@ defineProps<{
 </script>
 
 <style scoped>
-/* Contenedor principal forzado a blanco */
-.bg-white {
-  background-color: #ffffff !important;
-}
-
 .custom-table :deep(.p-datatable-thead > tr > th) {
-  background-color: #f8fafc !important;
-  color: #475569 !important;
   font-weight: 700;
   text-transform: uppercase;
   font-size: 0.65rem;
   letter-spacing: 0.02em;
   padding: 0.4rem 0.2rem !important;
-  border-bottom: 2px solid #e2e8f0;
   white-space: nowrap;
   vertical-align: bottom;
   height: 120px;
@@ -94,47 +86,9 @@ defineProps<{
   padding-bottom: 5px;
 }
 
-.custom-table :deep(.p-datatable-tbody > tr) {
-  background-color: #ffffff !important;
-  color: #1e293b !important;
-}
-
 .custom-table :deep(.p-datatable-tbody > tr > td) {
   padding: 0.4rem 0.3rem !important;
-  border-bottom: 1px solid #f1f5f9;
-  background-color: inherit;
   font-size: 0.7rem;
-}
-
-/* Filas alternas (zebra) */
-.custom-table :deep(.p-datatable-tbody > tr.p-row-odd) {
-  background-color: #fafafa !important;
-}
-
-.custom-table :deep(.p-datatable-tbody > tr:hover) {
-  background-color: #f0fdf4 !important;
-}
-
-/* Paginador */
-.custom-table :deep(.p-paginator) {
-  background-color: #ffffff !important;
-  border-top: 1px solid #f1f5f9;
-  padding: 0.5rem;
-}
-
-.custom-table :deep(.p-paginator .p-paginator-page),
-.custom-table :deep(.p-paginator .p-paginator-next),
-.custom-table :deep(.p-paginator .p-paginator-last),
-.custom-table :deep(.p-paginator .p-paginator-first),
-.custom-table :deep(.p-paginator .p-paginator-prev) {
-  color: #64748b !important;
-  min-width: 2rem;
-  height: 2rem;
-}
-
-.custom-table :deep(.p-paginator .p-paginator-page.p-highlight) {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
 }
 
 .plant-header {
