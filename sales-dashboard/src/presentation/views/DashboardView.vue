@@ -80,6 +80,14 @@
               v-tooltip.top="'Borrar filtro de fechas'"
               :disabled="!dates"
             />
+            <Button 
+              :icon="showFilters ? 'pi pi-chevron-up' : 'pi pi-filter'" 
+              :label="activeFiltersCount > 0 ? `Filtros (${activeFiltersCount})` : 'Filtros Avanzados'"
+              :outlined="!showFilters"
+              :severity="activeFiltersCount > 0 ? 'success' : 'secondary'"
+              @click="toggleFilters" 
+              v-tooltip.top="'Más opciones de filtrado'"
+            />
           </div>
           <div class="flex justify-between items-center -mt-1">
             <span v-if="dates && dates[0] && !dates[1]" class="text-[10px] font-bold text-primary-green animate-pulse">Selecciona la segunda fecha...</span>
@@ -87,6 +95,111 @@
             <span v-else class="text-[10px] font-medium text-gray-400">Sin filtro temporal</span>
           </div>
         </div>
+      </div>
+
+      <!-- Panel de Filtros Avanzados -->
+      <transition 
+        enter-active-class="transition duration-300 ease-out" 
+        enter-from-class="transform -translate-y-4 opacity-0" 
+        enter-to-class="transform translate-y-0 opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0 opacity-100"
+        leave-to-class="transform -translate-y-4 opacity-0"
+      >
+        <div v-if="showFilters" class="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Plantas</label>
+              <MultiSelect 
+                v-model="salesStore.filters.fabricas" 
+                :options="salesStore.filterOptions.fabricas" 
+                placeholder="Todas las plantas" 
+                :maxSelectedLabels="2"
+                filter
+                class="w-full"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Comunidades</label>
+              <MultiSelect 
+                v-model="salesStore.filters.comunidades" 
+                :options="salesStore.filterOptions.comunidades" 
+                placeholder="Todas las comunidades" 
+                :maxSelectedLabels="2"
+                filter
+                class="w-full"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Nomenclaturas</label>
+              <MultiSelect 
+                v-model="salesStore.filters.nomenclaturas" 
+                :options="salesStore.filterOptions.nomenclaturas" 
+                placeholder="Todas" 
+                :maxSelectedLabels="1"
+                filter
+                class="w-full"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Transportistas</label>
+              <MultiSelect 
+                v-model="salesStore.filters.transportistas" 
+                :options="salesStore.filterOptions.transportistas" 
+                placeholder="Todos" 
+                :maxSelectedLabels="1"
+                filter
+                class="w-full"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Matrículas</label>
+              <MultiSelect 
+                v-model="salesStore.filters.matriculas" 
+                :options="salesStore.filterOptions.matriculas" 
+                placeholder="Todas" 
+                :maxSelectedLabels="1"
+                filter
+                class="w-full"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-bold text-gray-400 uppercase tracking-widest pl-1">Clientes</label>
+              <MultiSelect 
+                v-model="salesStore.filters.clientes" 
+                :options="salesStore.filterOptions.clientes" 
+                optionLabel="label" 
+                optionValue="value"
+                placeholder="Todos los clientes" 
+                :maxSelectedLabels="1"
+                filter
+                class="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Barra de Chips de Filtros Activos -->
+      <div v-if="activeFiltersCount > 0" class="mt-4 flex flex-wrap gap-2 animate-fadein">
+        <template v-for="(vals, key) in salesStore.filters" :key="key">
+          <template v-if="Array.isArray(vals) && vals?.length">
+            <Chip 
+              v-for="val in vals" 
+              :key="val" 
+              :label="key === 'clientes' ? (salesStore.filterOptions.clientes.find(c => c.value === val)?.label || val) : val" 
+              removable 
+              @remove="salesStore.removeFilterValue(key as any, val)"
+              class="!bg-primary-green/10 !text-primary-green !border-primary-green/20 dark:!bg-brighter-green/20 dark:!text-brighter-green dark:!border-brighter-green/30 !text-[10px] !font-bold uppercase transition-all"
+            />
+          </template>
+        </template>
+        <button 
+          @click="resetFilters" 
+          class="text-[10px] font-black text-primary-red uppercase tracking-widest hover:underline px-2"
+        >
+          Limpiar Todo
+        </button>
       </div>
     </div>
 
@@ -401,6 +514,8 @@ import TabPanel from 'primevue/tabpanel';
 import Button from 'primevue/button';
 import DatePicker from 'primevue/datepicker';
 import ProgressSpinner from 'primevue/progressspinner';
+import MultiSelect from 'primevue/multiselect';
+import Chip from 'primevue/chip';
 import { useToast } from 'primevue/usetoast';
 
 const toast = useToast();
@@ -421,6 +536,22 @@ const formatNum = (val: number | string | undefined | null, decimals: number = 0
 const dates = ref<Date[] | null>(null)
 const isDark = ref(false)
 const missingCols = ref<string[]>([])
+const showFilters = ref(false)
+
+const activeFiltersCount = computed(() => {
+  let count = 0
+  if (salesStore.filters.fabricas?.length) count++
+  if (salesStore.filters.comunidades?.length) count++
+  if (salesStore.filters.nomenclaturas?.length) count++
+  if (salesStore.filters.transportistas?.length) count++
+  if (salesStore.filters.matriculas?.length) count++
+  if (salesStore.filters.clientes?.length) count++
+  return count
+})
+
+const toggleFilters = () => {
+  showFilters.value = !showFilters.value
+}
 
 const toggleDarkMode = () => {
   isDark.value = !isDark.value
@@ -532,7 +663,16 @@ const onFileSelected = async (file: File) => {
 
 const resetFilters = () => {
   dates.value = null
-  salesStore.setFilters({ startDate: null, endDate: null })
+  salesStore.setFilters({ 
+    startDate: null, 
+    endDate: null,
+    fabricas: null,
+    comunidades: null,
+    nomenclaturas: null,
+    transportistas: null,
+    matriculas: null,
+    clientes: null
+  })
 }
 
 const formatLocalDate = (date: Date): string => {
@@ -973,24 +1113,16 @@ const communityPlotlyLayout = computed(() => ({
   plot_bgcolor: 'rgba(0,0,0,0)',
   font: { 
     family: 'Outfit, sans-serif',
-    color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
+    color: isDark.value ? '#ffffff' : twColors['brand-gray'][700]
   },
-  polar: {
-    bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
-    angularaxis: {
-      gridcolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
-      linecolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
-      tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
-    },
-    radialaxis: {
-      gridcolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
-      linecolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
-      side: 'counterclockwise' as any,
-      angle: 90,
-      tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
-    }
-  },
-  showlegend: false,
+  showlegend: true,
+  legend: {
+    orientation: 'h' as any,
+    y: -0.1,
+    x: 0.5,
+    xanchor: 'center' as any,
+    font: { color: isDark.value ? twColors['brand-gray'][200] : twColors['brand-gray'][600] }
+  }
 }));
 
 const violinLayout = computed(() => ({

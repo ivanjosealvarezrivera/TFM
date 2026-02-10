@@ -23,9 +23,10 @@ export interface Sale {
 export interface SalesFilters {
   startDate: string | null;
   endDate: string | null;
-  fabrica: string | null;
-  fabricaPrefix: string | null;
-  grupo: string | null;
-  truck: string | null;
-  transportista: string | null;
+  fabricas: string[] | null;
+  comunidades: string[] | null;
+  nomenclaturas: string[] | null;
+  transportistas: string[] | null;
+  matriculas: string[] | null;
+  clientes: string[] | null;
 }

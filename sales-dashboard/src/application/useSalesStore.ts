@@ -13,22 +13,52 @@ export const useSalesStore = defineStore('sales', () => {
   const filters = ref<SalesFilters>({
     startDate: null,
     endDate: null,
-    fabrica: null,
-    fabricaPrefix: null,
-    grupo: null,
-    truck: null,
-    transportista: null
+    fabricas: null,
+    comunidades: null,
+    nomenclaturas: null,
+    transportistas: null,
+    matriculas: null,
+    clientes: null
+  })
+
+  // --- Opciones para Filtros (Valores únicos de los datos cargados) ---
+  const filterOptions = computed(() => {
+    const fabricas = new Set<string>()
+    const comunidades = new Set<string>()
+    const nomenclaturas = new Set<string>()
+    const transportistas = new Set<string>()
+    const matriculas = new Set<string>()
+    const clientes = new Map<string, string>() // NIF -> Nombre
+
+    rawSales.value.forEach(s => {
+      fabricas.add(s.planta)
+      comunidades.add(s.comunidad)
+      nomenclaturas.add(s.nomenclatura)
+      transportistas.add(s.nombreTransportista)
+      matriculas.add(s.matricula)
+      clientes.set(s.cliente, s.nombreCliente)
+    })
+
+    return {
+      fabricas: Array.from(fabricas).sort(),
+      comunidades: Array.from(comunidades).sort(),
+      nomenclaturas: Array.from(nomenclaturas).sort(),
+      transportistas: Array.from(transportistas).sort(),
+      matriculas: Array.from(matriculas).sort(),
+      clientes: Array.from(clientes.entries()).map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label))
+    }
   })
 
   const filteredSales = computed(() => {
     return rawSales.value.filter(sale => {
       if (filters.value.startDate && sale.fecha < filters.value.startDate) return false
       if (filters.value.endDate && sale.fecha > filters.value.endDate) return false
-      if (filters.value.fabrica && sale.planta !== filters.value.fabrica) return false
-      if (filters.value.fabricaPrefix && sale.comunidad !== filters.value.fabricaPrefix) return false
-      if (filters.value.grupo && sale.grupo !== filters.value.grupo) return false
-      if (filters.value.truck && sale.matricula !== filters.value.truck) return false
-      if (filters.value.transportista && sale.nombreTransportista !== filters.value.transportista) return false
+      if (filters.value.fabricas?.length && !filters.value.fabricas.includes(sale.planta)) return false
+      if (filters.value.comunidades?.length && !filters.value.comunidades.includes(sale.comunidad)) return false
+      if (filters.value.nomenclaturas?.length && !filters.value.nomenclaturas.includes(sale.nomenclatura)) return false
+      if (filters.value.transportistas?.length && !filters.value.transportistas.includes(sale.nombreTransportista)) return false
+      if (filters.value.matriculas?.length && !filters.value.matriculas.includes(sale.matricula)) return false
+      if (filters.value.clientes?.length && !filters.value.clientes.includes(sale.cliente)) return false
       return true
     })
   })
@@ -47,11 +77,12 @@ export const useSalesStore = defineStore('sales', () => {
     return rawSales.value.filter(sale => {
       if (!startStr || !endStr) return false
       if (sale.fecha < startStr || sale.fecha > endStr) return false
-      if (filters.value.fabrica && sale.planta !== filters.value.fabrica) return false
-      if (filters.value.fabricaPrefix && sale.comunidad !== filters.value.fabricaPrefix) return false
-      if (filters.value.grupo && sale.grupo !== filters.value.grupo) return false
-      if (filters.value.truck && sale.matricula !== filters.value.truck) return false
-      if (filters.value.transportista && sale.nombreTransportista !== filters.value.transportista) return false
+      if (filters.value.fabricas?.length && !filters.value.fabricas.includes(sale.planta)) return false
+      if (filters.value.comunidades?.length && !filters.value.comunidades.includes(sale.comunidad)) return false
+      if (filters.value.nomenclaturas?.length && !filters.value.nomenclaturas.includes(sale.nomenclatura)) return false
+      if (filters.value.transportistas?.length && !filters.value.transportistas.includes(sale.nombreTransportista)) return false
+      if (filters.value.matriculas?.length && !filters.value.matriculas.includes(sale.matricula)) return false
+      if (filters.value.clientes?.length && !filters.value.clientes.includes(sale.cliente)) return false
       return true
     })
   })
@@ -172,16 +203,16 @@ export const useSalesStore = defineStore('sales', () => {
     const values = Object.values(data)
     
     return [{
-      type: 'barpolar',
-      r: values,
-      theta: labels,
+      type: 'pie',
+      labels: labels,
+      values: values,
+      hole: 0.4,
       marker: {
-        color: values,
-        colorscale: 'Greens',
-        reversescale: true,
-        line: { width: 1, color: twColors['brand-gray'][0] }
+        colors: twColors['chart-greens'],
+        line: { width: 2, color: twColors['brand-gray'][0] }
       },
-      hovertemplate: '<b>%{theta}</b><br>Volumen: %{r:,.0f} m³<extra></extra>'
+      textinfo: 'label+percent',
+      hovertemplate: '<b>%{label}</b><br>Volumen: %{value:,.0f} m³<br>%{percent}<extra></extra>'
     }]
   })
 
@@ -732,6 +763,13 @@ export const useSalesStore = defineStore('sales', () => {
     filters.value = { ...filters.value, ...newFilters }
   }
 
+  function removeFilterValue(key: keyof SalesFilters, value: string) {
+    const current = filters.value[key]
+    if (Array.isArray(current)) {
+      filters.value[key] = current.filter(v => v !== value) as any
+    }
+  }
+
   return {
     rawSales,
     filters,
@@ -770,10 +808,12 @@ export const useSalesStore = defineStore('sales', () => {
     technicalKPIs,
     technicalKPIsByPlant,
     pivotData,
+    filterOptions,
     isLoading,
     fileError,
     setSales,
     setFilters,
+    removeFilterValue,
     setFileError(error: string | null) {
       fileError.value = error
     }
