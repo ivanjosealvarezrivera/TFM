@@ -26,12 +26,39 @@
             @file-selected="onFileSelected" 
           />
         </div>
-        <div v-if="salesStore.rawSales.length > 0" class="flex flex-col gap-2 min-w-[320px]">
-          <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex justify-between">
-            <span>Filtrar por periodo</span>
-            <span v-if="dates && dates[0] && !dates[1]" class="text-primary-green animate-pulse">Selecciona la segunda fecha...</span>
-            <span v-else-if="dates && dates[1]" class="text-primary-green">Rango seleccionado</span>
-          </label>
+        <div v-if="salesStore.rawSales.length > 0" class="flex flex-col gap-3 min-w-[380px]">
+          <div class="flex justify-between items-center">
+            <label class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+              Filtrar por periodo
+            </label>
+            <div class="flex gap-1.5">
+              <button 
+                @click="setRange('thisMonth')" 
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-primary-green hover:text-white transition-colors uppercase tracking-tighter"
+                v-tooltip.top="'Este Mes'"
+              >Mes</button>
+              <button 
+                @click="setRange('lastMonth')" 
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-primary-green hover:text-white transition-colors uppercase tracking-tighter"
+                v-tooltip.top="'Mes Anterior Completo'"
+              >Mes Ant.</button>
+              <button 
+                @click="setRange('lastQuarter')" 
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-primary-green hover:text-white transition-colors uppercase tracking-tighter"
+                v-tooltip.top="'Últimos 3 meses'"
+              >Tri.</button>
+              <button 
+                @click="setRange('thisYear')" 
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-primary-green hover:text-white transition-colors uppercase tracking-tighter"
+                v-tooltip.top="'Este Año'"
+              >Año</button>
+              <button 
+                @click="setRange('lastYear')" 
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-primary-green hover:text-white transition-colors uppercase tracking-tighter"
+                v-tooltip.top="'Año Pasado'"
+              >Año Ant.</button>
+            </div>
+          </div>
           <div class="flex gap-2">
             <DatePicker 
               v-model="dates" 
@@ -53,6 +80,11 @@
               v-tooltip.top="'Borrar filtro de fechas'"
               :disabled="!dates"
             />
+          </div>
+          <div class="flex justify-between items-center -mt-1">
+            <span v-if="dates && dates[0] && !dates[1]" class="text-[10px] font-bold text-primary-green animate-pulse">Selecciona la segunda fecha...</span>
+            <span v-else-if="dates && dates[1]" class="text-[10px] font-bold text-primary-green">Rango activo</span>
+            <span v-else class="text-[10px] font-medium text-gray-400">Sin filtro temporal</span>
           </div>
         </div>
       </div>
@@ -434,6 +466,35 @@ onMounted(() => {
   updateTheme()
 })
 
+
+const setRange = (type: 'thisMonth' | 'lastMonth' | 'lastQuarter' | 'thisYear' | 'lastYear') => {
+  const now = new Date()
+  let start: Date
+  let end: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+  switch (type) {
+    case 'thisMonth':
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      break
+    case 'lastMonth':
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      end = new Date(now.getFullYear(), now.getMonth(), 0)
+      break
+    case 'lastQuarter':
+      start = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+      break
+    case 'thisYear':
+      start = new Date(now.getFullYear(), 0, 1)
+      break
+    case 'lastYear':
+      start = new Date(now.getFullYear() - 1, 0, 1)
+      end = new Date(now.getFullYear() - 1, 11, 31)
+      break
+    default:
+      return
+  }
+  dates.value = [start, end]
+}
 
 const onFileSelected = async (file: File) => {
   salesStore.isLoading = true
