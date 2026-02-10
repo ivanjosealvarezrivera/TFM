@@ -16,32 +16,15 @@
       />
     </header>
 
-    <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+    <div v-if="salesStore.rawSales.length > 0" class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300">
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="flex-1">
-          <label class="block text-sm font-bold text-gray-700 dark:text-gray-200 mb-2">Archivo de Ventas (.xlsx)</label>
-          <input 
-            type="file" 
-            accept=".xlsx" 
-            @change="handleFileUpload"
-            class="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-green file:text-white hover:file:bg-darker-green transition-all"
-          >
-          
-          <!-- Bloque de Error Persistente (Contrato de Datos) -->
-          <div v-if="salesStore.fileError" class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl animate-fadein">
-            <div class="flex items-start gap-3">
-              <i class="pi pi-exclamation-circle text-red-600 dark:text-red-400 mt-1"></i>
-              <div>
-                <h4 class="text-sm font-bold text-red-800 dark:text-red-200">Error en estructura del archivo</h4>
-                <p class="text-xs text-red-700 dark:text-red-300 mt-1">{{ salesStore.fileError }}</p>
-                <div v-if="missingCols && missingCols.length > 0" class="mt-2 flex flex-wrap gap-1">
-                  <span v-for="col in missingCols" :key="col" class="px-2 py-0.5 bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100 text-[10px] font-bold rounded uppercase">
-                    {{ col }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <FileDropZone 
+            compact 
+            :error="salesStore.fileError" 
+            :missingCols="missingCols"
+            @file-selected="onFileSelected" 
+          />
         </div>
         <div v-if="salesStore.rawSales.length > 0" class="flex flex-col gap-2 min-w-[320px]">
           <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex justify-between">
@@ -58,7 +41,7 @@
               dateFormat="dd/mm/yy" 
               showIcon 
               iconDisplay="input"
-              numberOfMonths="2"
+              :numberOfMonths="2"
               hideOnRangeSelection
               class="flex-1"
               v-tooltip.top="'Haz clic en el primer día y luego en el último para definir el rango'"
@@ -112,7 +95,7 @@
           <Tab value="1">Análisis de Fórmulas</Tab>
           <Tab value="2">Análisis de Transporte</Tab>
           <Tab value="3">Análisis de Clientes</Tab>
-          <Tab value="4">Análisis Técnico</Tab>
+          <Tab value="4">Análisis de Tiempos</Tab>
         </TabList>
         <TabPanels>
           <TabPanel value="0">
@@ -355,9 +338,12 @@
       </Tabs>
     </div>
 
-    <div v-else class="text-center p-20 bg-gray-50 dark:bg-gray-900/50 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 transition-colors duration-300">
-      <i class="pi pi-cloud-upload text-6xl text-gray-300 dark:text-gray-700 mb-4"></i>
-      <h2 class="text-xl font-bold text-gray-400 dark:text-gray-500">Sube un archivo para comenzar el análisis</h2>
+    <div v-else class="max-w-4xl mx-auto py-12">
+      <FileDropZone 
+        :error="salesStore.fileError" 
+        :missingCols="missingCols"
+        @file-selected="onFileSelected" 
+      />
     </div>
   </div>
 </template>
@@ -372,6 +358,7 @@ import CustomerSalesTable from '../components/CustomerSalesTable.vue';
 import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
+import FileDropZone from '../components/FileDropZone.vue'
 // @ts-ignore
 import tailwindConfig from '../../../tailwind.config.js'
 import Tabs from 'primevue/tabs';
@@ -447,40 +434,38 @@ onMounted(() => {
   updateTheme()
 })
 
-const handleFileUpload = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  if (input.files && input.files[0]) {
-    salesStore.isLoading = true
-    salesStore.setFileError(null)
-    salesStore.setSales([]) // Limpiar datos previos inmediatamente
-    resetFilters() // Limpiar filtros previos
-    missingCols.value = []
-    
-    try {
-      const sales = await ExcelService.processFile(input.files[0])
-      salesStore.setSales(sales)
+
+const onFileSelected = async (file: File) => {
+  salesStore.isLoading = true
+  salesStore.setFileError(null)
+  salesStore.setSales([]) // Limpiar datos previos inmediatamente
+  resetFilters() // Limpiar filtros previos
+  missingCols.value = []
+  
+  try {
+    const sales = await ExcelService.processFile(file)
+    salesStore.setSales(sales)
+    toast.add({ 
+      severity: 'success', 
+      summary: 'Éxito', 
+      detail: `Se han cargado ${sales.length} registros correctamente`, 
+      life: 3000 
+    });
+  } catch (error: any) {
+    console.error(error)
+    if (error.type === 'INVALID_HEADER') {
+      salesStore.setFileError(error.message)
+      missingCols.value = error.details || []
+    } else {
       toast.add({ 
-        severity: 'success', 
-        summary: 'Éxito', 
-        detail: `Se han cargado ${sales.length} registros correctamente`, 
-        life: 3000 
+        severity: 'error', 
+        summary: 'Error de Carga', 
+        detail: error.message || 'Error desconocido al procesar el archivo', 
+        life: 5000 
       });
-    } catch (error: any) {
-      console.error(error)
-      if (error.type === 'INVALID_HEADER') {
-        salesStore.setFileError(error.message)
-        missingCols.value = error.details || []
-      } else {
-        toast.add({ 
-          severity: 'error', 
-          summary: 'Error de Carga', 
-          detail: error.message || 'Error desconocido al procesar el archivo', 
-          life: 5000 
-        });
-      }
-    } finally {
-      salesStore.isLoading = false
     }
+  } finally {
+    salesStore.isLoading = false
   }
 }
 

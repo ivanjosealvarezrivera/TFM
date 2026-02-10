@@ -91,6 +91,12 @@ defineProps<{
   font-size: 0.7rem;
 }
 
+.custom-table :deep(.p-datatable-footer) {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
 .plant-header {
   max-width: 100px;
   overflow: hidden;
