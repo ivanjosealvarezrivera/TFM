@@ -16,7 +16,18 @@
       />
     </header>
 
-    <div v-if="salesStore.rawSales.length > 0" class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300">
+    <!-- Indicador de Carga (Worker) -->
+    <div v-if="salesStore.isCalculating" class="fixed top-0 left-0 w-full h-1 z-50 overflow-hidden bg-transparent">
+      <div class="h-full bg-primary-green animate-progress-glow"></div>
+    </div>
+
+    <div v-if="salesStore.rawSales.length > 0" class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300 relative">
+      <!-- Overlay sutil cuando está recalculando -->
+      <div v-if="salesStore.isCalculating" class="absolute inset-0 bg-white/10 dark:bg-black/10 backdrop-blur-[1px] z-10 rounded-2xl flex items-start justify-center pt-2 transition-all cursor-wait">
+        <span class="bg-primary-green text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg animate-bounce mt-2 uppercase tracking-widest">
+          Recalculando...
+        </span>
+      </div>
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="flex-1">
           <FileDropZone 
@@ -637,6 +648,7 @@ const onFileSelected = async (file: File) => {
   try {
     const sales = await ExcelService.processFile(file)
     salesStore.setSales(sales)
+    salesStore.triggerAnalysis() // Disparar análisis inicial
     toast.add({ 
       severity: 'success', 
       summary: 'Éxito', 
@@ -681,6 +693,15 @@ const formatLocalDate = (date: Date): string => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+let debounceTimeout: any = null
+
+watch(() => salesStore.filters, () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  debounceTimeout = setTimeout(() => {
+    salesStore.triggerAnalysis()
+  }, 300)
+}, { deep: true })
 
 watch(dates, (newDates) => {
   if (newDates && newDates.length === 2 && newDates[0] && newDates[1]) {
@@ -1005,19 +1026,19 @@ const heatmapChartData = computed(() => {
 });
 
 const technicalBubbleChartData = computed(() => {
-  const data = salesStore.technicalKPIsByPlant;
+  const data = salesStore.technicalKPIsByPlant as any[];
   return [
     {
-      x: data.map(d => d.maxTimeToSite),
-      y: data.map(d => d.maxUnloadingTime),
-      text: data.map(d => `<b>Planta: ${d.name}</b><br>T. Máx Viaje: ${d.maxTimeToSite.toFixed(0)} min<br>T. Máx Descarga: ${d.maxUnloadingTime.toFixed(0)} min<br>Descargas Tardías: ${d.lateUnloadings}`),
+      x: data.map((d: any) => d.maxTimeToSite),
+      y: data.map((d: any) => d.maxUnloadingTime),
+      text: data.map((d: any) => `<b>Planta: ${d.name}</b><br>T. Máx Viaje: ${d.maxTimeToSite.toFixed(0)} min<br>T. Máx Descarga: ${d.maxUnloadingTime.toFixed(0)} min<br>Descargas Tardías: ${d.lateUnloadings}`),
       mode: 'markers',
       marker: {
-        size: data.map(d => d.lateUnloadings),
+        size: data.map((d: any) => d.lateUnloadings),
         sizemode: 'area',
-        sizeref: 2.0 * Math.max(...data.map(d => d.lateUnloadings), 1) / (60 ** 2),
+        sizeref: 2.0 * Math.max(...data.map((d: any) => d.lateUnloadings), 1) / (60 ** 2),
         sizemin: 10,
-        color: data.map(d => d.lateUnloadings),
+        color: data.map((d: any) => d.lateUnloadings),
         colorscale: 'Greens',
         showscale: true,
         reversescale: true,
