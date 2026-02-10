@@ -72,7 +72,7 @@
           iconClass="text-brighter-green"
           :subtitle="salesStore.volumeVariation !== 0 ? `${salesStore.volumeVariation > 0 ? '+' : ''}${formatNum(salesStore.volumeVariation, 1)}% vs mes anterior` : ''"
         />
-        <KPICard title="Ventas Filtradas" :value="formatNum(salesStore.filteredSales.length)" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
+        <KPICard title="Albaranes Filtrados" :value="formatNum(salesStore.filteredSales.length)" icon="pi pi-ticket" iconClass="text-medium-dark-green" />
         <KPICard 
           title="Día Top Ventas" 
           :value="salesStore.maxSalesDay ? formatNum(salesStore.maxSalesDay.value, 1) + ' m³' : '---'" 
@@ -925,6 +925,7 @@ const communityPlotlyLayout = computed(() => ({
       gridcolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
       linecolor: isDark.value ? twColors['brand-gray'][600] : '#eee',
       side: 'counterclockwise' as any,
+      angle: 90,
       tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
     }
   },
