@@ -30,6 +30,13 @@
       </div>
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="flex-1">
+          <div v-if="salesStore.fileName" class="flex items-center gap-2 mb-2 px-1 animate-fadein">
+            <div class="w-1.5 h-1.5 rounded-full bg-primary-green animate-pulse"></div>
+            <span class="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+              Fichero actual: 
+              <span class="text-primary-green dark:text-brighter-green ml-1">{{ salesStore.fileName }}</span>
+            </span>
+          </div>
           <FileDropZone 
             compact 
             :error="salesStore.fileError" 
@@ -261,7 +268,7 @@
                 <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Meses</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Evolución del volumen de ventas agrupado por meses para detectar tendencias estacionales.</p>
                 <div class="h-96">
-                  <BaseChartJS :config="monthChartConfig" />
+                  <BasePlotly :data="monthPlotlyData" :layout="commonBarLayout('Volumen Mensual (m³)')" />
                 </div>
               </div>
               <!-- 2. Ventas por Días -->
@@ -269,7 +276,7 @@
                 <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Días</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Visualización detallada de las fluctuaciones de carga diarias en el periodo seleccionado.</p>
                 <div class="h-96">
-                  <BaseChartJS :config="dayChartConfig" />
+                  <BasePlotly :data="dayPlotlyData" :layout="commonLineLayout('Ventas Diarias (m³)')" />
                 </div>
               </div>
               <!-- 3. Ventas por Comunidad Autónoma -->
@@ -285,7 +292,7 @@
                 <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Ventas por Planta</h3>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Comparativa de rendimiento entre las distintas plantas de producción operativas.</p>
                 <div class="h-96">
-                  <BaseChartJS :config="plantaChartConfig" />
+                  <BasePlotly :data="plantaPlotlyData" :layout="plantaPlotlyLayout" />
                 </div>
               </div>
             </div>
@@ -361,7 +368,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Desglose del volumen total por empresa transportista. Deslice para ver el listado completo.</p>
                 <div class="overflow-y-auto max-h-[600px] border border-gray-50 dark:border-gray-800 rounded-xl">
                   <div :style="{ height: transportistaChartHeight }">
-                    <BaseChartJS :config="transportistaChartConfig" />
+                    <BasePlotly :data="transportistaPlotlyData" :layout="horizontalBarLayout('m³ Facturados')" />
                   </div>
                 </div>
               </div>
@@ -372,7 +379,7 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Detalle de m³ transportados por cada vehículo registrado en el periodo.</p>
                 <div class="overflow-y-auto max-h-[600px] border border-gray-50 dark:border-gray-800 rounded-xl">
                   <div :style="{ height: matriculaChartHeight }">
-                    <BaseChartJS :config="matriculaChartConfig" />
+                    <BasePlotly :data="matriculaPlotlyData" :layout="horizontalBarLayout('m³ Facturados')" />
                   </div>
                 </div>
               </div>
@@ -495,6 +502,13 @@
     </div>
 
     <div v-else class="max-w-4xl mx-auto py-12">
+      <div v-if="salesStore.fileName" class="flex items-center justify-center gap-2 mb-4 animate-fadein">
+        <div class="w-2 h-2 rounded-full bg-primary-green animate-pulse"></div>
+        <span class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+          Fichero actual: 
+          <span class="text-primary-green dark:text-brighter-green ml-1">{{ salesStore.fileName }}</span>
+        </span>
+      </div>
       <FileDropZone 
         :error="salesStore.fileError" 
         :missingCols="missingCols"
@@ -508,10 +522,9 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useSalesStore } from '../../application/useSalesStore'
 import { ExcelService } from '../../infrastructure/services/ExcelService'
-import type { ChartConfiguration } from 'chart.js'
+import type { Data, Layout } from 'plotly.js'
 import KPICard from '../components/KPICard.vue';
 import CustomerSalesTable from '../components/CustomerSalesTable.vue';
-import BaseChartJS from '../components/BaseChartJS.vue'
 import BasePlotly from '../components/BasePlotly.vue'
 import PivotSalesTable from '../components/PivotSalesTable.vue'
 import FileDropZone from '../components/FileDropZone.vue'
@@ -641,6 +654,7 @@ const setRange = (type: 'thisMonth' | 'lastMonth' | 'lastQuarter' | 'thisYear' |
 const onFileSelected = async (file: File) => {
   salesStore.isLoading = true
   salesStore.setFileError(null)
+  salesStore.setFileName(file.name)
   salesStore.setSales([]) // Limpiar datos previos inmediatamente
   resetFilters() // Limpiar filtros previos
   missingCols.value = []
@@ -715,186 +729,174 @@ watch(dates, (newDates) => {
 })
 
 // Chart Configurations (Simplified using Store Getters)
-const plantaChartConfig = computed<ChartConfiguration>(() => {
-    return {
-        type: 'bar',
-        data: {
-            labels: Object.keys(salesStore.volumeByPlanta),
-            datasets: [
-                {
-                    label: 'm³',
-                    data: Object.values(salesStore.volumeByPlanta),
-                    backgroundColor: twColors['medium-dark-green']
-                },
-                {
-                    label: `Media (${salesStore.averageVolumeByPlanta.toFixed(1)} m³)`,
-                    data: new Array(Object.keys(salesStore.volumeByPlanta).length).fill(salesStore.averageVolumeByPlanta),
-                    type: 'line',
-                    borderColor: twColors['primary-red'],
-                    borderDash: [5, 5],
-                    pointStyle: false,
-                    fill: false
-                }
-            ]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              ticks: {
-                autoSkip: false,
-                maxRotation: 45,
-                minRotation: 45
-              }
-            }
-          }
-        }
+// --- Plotly Helper Layouts ---
+const commonBarLayout = (title: string): Partial<Layout> => ({
+  autosize: true,
+  margin: { t: 40, l: 50, r: 20, b: 60 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
+  font: { family: 'Outfit, sans-serif', color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] },
+  xaxis: {
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
+    tickangle: -45,
+    automargin: true
+  },
+  yaxis: {
+    title: { text: title },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
+  },
+  hovermode: 'closest',
+  hoverlabel: {
+    bgcolor: isDark.value ? '#1f2937' : '#ffffff',
+    bordercolor: twColors['primary-green'],
+    font: { family: 'Outfit, sans-serif', size: 13, color: isDark.value ? '#f3f4f6' : '#374151' }
+  }
+});
+
+const commonLineLayout = (title: string): Partial<Layout> => ({
+  ...commonBarLayout(title),
+  hovermode: 'x unified' as any
+});
+
+const horizontalBarLayout = (title: string): Partial<Layout> => ({
+  autosize: true,
+  margin: { t: 30, l: 150, r: 20, b: 40 },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: isDark.value ? twColors['chart-bg-dark'] : twColors['chart-bg-light'],
+  font: { family: 'Outfit, sans-serif', color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700] },
+  xaxis: {
+    title: { text: title },
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
+  },
+  yaxis: {
+    gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][50] },
+    automargin: true
+  },
+  bargap: 0.1,
+  hovermode: 'closest',
+});
+
+// --- Plotly Computed Data ---
+const monthPlotlyData = computed<Data[]>(() => [
+  {
+    x: salesStore.salesByMonth.labels,
+    y: salesStore.salesByMonth.values as number[],
+    type: 'bar',
+    name: 'Volumen Mensual',
+    marker: { color: twColors['darker-green'] },
+    hovertemplate: '<b>%{x}</b><br>Volumen: %{y:,.0f} m³<extra></extra>'
+  },
+  {
+    x: salesStore.salesByMonth.labels,
+    y: new Array(salesStore.salesByMonth.labels.length).fill(salesStore.averageSalesByMonth),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Media',
+    line: { color: twColors['primary-red'], dash: 'dash', width: 2 },
+    hovertemplate: 'Media: %{y:,.0f} m³<extra></extra>'
+  }
+]);
+
+const dayPlotlyData = computed<Data[]>(() => [
+  {
+    x: salesStore.salesByDay.labels,
+    y: salesStore.salesByDay.values as number[],
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Ventas Diarias',
+    line: { color: twColors['primary-green'], width: 3 },
+    fill: 'tozeroy',
+    fillcolor: isDark.value ? 'rgba(0, 166, 81, 0.1)' : 'rgba(0, 166, 81, 0.05)',
+    hovertemplate: 'Volumen: %{y:,.0f} m³<extra></extra>'
+  },
+  {
+    x: salesStore.salesByDay.labels,
+    y: new Array(salesStore.salesByDay.labels.length).fill(salesStore.averageSalesByDay),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Media',
+    line: { color: twColors['primary-red'], dash: 'dash', width: 2 },
+    hovertemplate: 'Media: %{y:,.0f} m³<extra></extra>'
+  }
+]);
+
+const plantaPlotlyData = computed<Data[]>(() => {
+  const data = Object.entries(salesStore.volumeByPlanta)
+    .sort(([a], [b]) => a.localeCompare(b));
+  
+  const labels = data.map(([k]) => k);
+  const values = data.map(([, v]) => v as number);
+
+  return [
+    {
+      x: labels,
+      y: values,
+      type: 'bar',
+      name: 'm³',
+      marker: { color: twColors['medium-dark-green'] },
+      hovertemplate: '<b>%{x}</b><br>Volumen: %{y:,.0f} m³<extra></extra>'
+    },
+    {
+      x: labels,
+      y: new Array(labels.length).fill(salesStore.averageVolumeByPlanta),
+      type: 'scatter',
+      mode: 'lines',
+      name: 'Media',
+      line: { color: twColors['primary-red'], dash: 'dash', width: 2 },
+      hovertemplate: 'Media General: %{y:,.0f} m³<extra></extra>'
     }
-})
+  ];
+});
 
-const dayChartConfig = computed<ChartConfiguration>(() => {
-    return {
-        type: 'line',
-        data: {
-            labels: salesStore.salesByDay.labels,
-            datasets: [
-                {
-                    label: 'Ventas Diarias',
-                    data: salesStore.salesByDay.values,
-                    borderColor: twColors['primary-green'],
-                    tension: 0.1
-                },
-                {
-                    label: `Media Diaria (${salesStore.averageSalesByDay.toFixed(1)} m³)`,
-                    data: new Array(salesStore.salesByDay.labels.length).fill(salesStore.averageSalesByDay),
-                    borderColor: twColors['primary-red'],
-                    borderDash: [5, 5],
-                    pointStyle: false,
-                    fill: false
-                }
-            ]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false 
-        }
+const plantaPlotlyLayout = computed(() => {
+  const base = commonBarLayout('m³ por Planta');
+  return {
+    ...base,
+    xaxis: {
+      ...base.xaxis,
+      dtick: 1, // Forzar que aparezcan todas las etiquetas si es categoría
+      type: 'category' as any
     }
-})
+  };
+});
 
-const monthChartConfig = computed<ChartConfiguration>(() => {
-    return {
-        type: 'bar',
-        data: {
-            labels: salesStore.salesByMonth.labels,
-            datasets: [
-                {
-                    label: 'Volumen Mensual (m³)',
-                    data: salesStore.salesByMonth.values,
-                    backgroundColor: twColors['darker-green']
-                },
-                {
-                    label: `Media Mensual (${salesStore.averageSalesByMonth.toFixed(1)} m³)`,
-                    data: new Array(salesStore.salesByMonth.labels.length).fill(salesStore.averageSalesByMonth),
-                    type: 'line',
-                    borderColor: twColors['primary-red'],
-                    borderDash: [5, 5],
-                    pointStyle: false,
-                    fill: false
-                }
-            ]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false 
-        }
-    }
-})
+const transportistaPlotlyData = computed<Data[]>(() => {
+  const data = salesStore.volumeByTransportista;
+  // Revertimos para que el mayor volumen esté arriba (Plotly dibuja de abajo a arriba por defecto en categorías)
+  const keys = Object.keys(data).reverse();
+  const values = Object.values(data).map((v: any) => v.volume).reverse();
+  
+  return [{
+    y: keys,
+    x: values,
+    type: 'bar',
+    orientation: 'h',
+    name: 'm³ Facturados',
+    marker: { color: twColors['darker-green'] },
+    hovertemplate: '<b>%{y}</b><br>Volumen: %{x:,.0f} m³<extra></extra>'
+  }];
+});
 
-
-
-const transportistaChartConfig = computed<ChartConfiguration>(() => {
-    const data = salesStore.volumeByTransportista;
-    return {
-        type: 'bar',
-        data: {
-            labels: Object.keys(data),
-            datasets: [{
-                label: 'm³ Facturados',
-                data: Object.values(data).map((v: any) => v.volume),
-                backgroundColor: twColors['darker-green'],
-                barThickness: 12
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => {
-                            const label = context.dataset.label || '';
-                            const value = (context.parsed?.x ?? 0) as number;
-                            const stats = data[context.label] as any;
-                            if (stats) {
-                                return [
-                                    `${label}: ${value.toLocaleString()} m³`,
-                                    `Viajes: ${stats.trips}`,
-                                    `Media/Viaje: ${stats.avgVolume.toFixed(2)} m³`,
-                                    `Matrículas: ${stats.uniqueTrucks}`
-                                ];
-                            }
-                            return `${label}: ${value.toLocaleString()} m³`;
-                        }
-                    }
-                }
-            }
-        }
-    }
-})
-
-const matriculaChartConfig = computed<ChartConfiguration>(() => {
-    const data = salesStore.volumeByMatricula;
-    return {
-        type: 'bar',
-        data: {
-            labels: Object.keys(data),
-            datasets: [{
-                label: 'm³ Facturados',
-                data: Object.values(data).map((v: any) => v.volume),
-                backgroundColor: twColors['medium-dark-green'],
-                barThickness: 12
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (context) => {
-                            const label = context.dataset.label || '';
-                            const value = (context.parsed?.x ?? 0) as number;
-                            const stats = data[context.label] as any;
-                            if (stats) {
-                                return [
-                                    `${label}: ${value.toLocaleString()} m³`,
-                                    `Viajes: ${stats.trips}`,
-                                    `Media/Viaje: ${stats.avgVolume.toFixed(2)} m³`
-                                ];
-                            }
-                            return `${label}: ${value.toLocaleString()} m³`;
-                        }
-                    }
-                }
-            }
-        }
-    }
-})
+const matriculaPlotlyData = computed<Data[]>(() => {
+  const data = salesStore.volumeByMatricula;
+  // Revertimos para que el mayor volumen esté arriba
+  const keys = Object.keys(data).reverse();
+  const values = Object.values(data).map((v: any) => v.volume).reverse();
+  
+  return [{
+    y: keys,
+    x: values,
+    type: 'bar',
+    orientation: 'h',
+    name: 'm³ Facturados',
+    marker: { color: twColors['medium-dark-green'] },
+    hovertemplate: '<b>%{y}</b><br>Volumen: %{x:,.0f} m³<extra></extra>'
+  }];
+});
 
 const transportistaChartHeight = computed(() => {
     const count = Object.keys(salesStore.volumeByTransportista).length;

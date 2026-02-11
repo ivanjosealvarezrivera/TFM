@@ -9,6 +9,7 @@ export const useSalesStore = defineStore('sales', () => {
   const rawSales = ref<Sale[]>([])
   const isLoading = ref(false)
   const fileError = ref<string | null>(null)
+  const fileName = ref<string | null>(null)
   
   const filters = ref<SalesFilters>({
     startDate: null,
@@ -391,7 +392,8 @@ export const useSalesStore = defineStore('sales', () => {
     customerLoyaltyData, plantPerformanceData, technicalKPIs, pivotData, filterOptions,
     technicalKPIsByPlant, technicalHeatmapData, filteredSales, volumeVariation,
     top3ClientsInfo, top10ClientsInfo,
-    isLoading, fileError, isCalculating, setSales, setFilters, removeFilterValue, triggerAnalysis,
-    setFileError(error: string | null) { fileError.value = error }
+    isLoading, fileError, fileName, isCalculating, setSales, setFilters, removeFilterValue, triggerAnalysis,
+    setFileError(error: string | null) { fileError.value = error },
+    setFileName(name: string | null) { fileName.value = name }
   }
 })
