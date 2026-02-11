@@ -409,7 +409,16 @@ export const useSalesStore = defineStore('sales', () => {
   }
 
   function addSales(chunk: Sale[]) {
-    rawSales.value = [...rawSales.value, ...chunk]
+    // Usamos push directamente sobre el array interno para evitar O(N^2)
+    // Como es un shallowRef, push no dispara reactividad, lo cual es bueno para el rendimiento
+    // durante cargas masivas.
+    rawSales.value.push(...chunk)
+  }
+
+  // Nueva función para forzar la actualización de la UI cuando sea conveniente
+  function refreshSalesUI() {
+    // Reemplazamos la referencia para disparar reactividad en el shallowRef
+    rawSales.value = [...rawSales.value]
   }
 
   function setFilters(newFilters: Partial<SalesFilters>) {
@@ -432,7 +441,7 @@ export const useSalesStore = defineStore('sales', () => {
     customerLoyaltyData, plantPerformanceData, technicalKPIs, pivotData, filterOptions,
     technicalKPIsByPlant, technicalHeatmapData, filteredSales, volumeVariation,
     top3ClientsInfo, top10ClientsInfo,
-    isLoading, isExcelLoading, fileError, fileName, isCalculating, totalProcessedRecords, loadingStep, setSales, addSales, setFilters, removeFilterValue, triggerAnalysis, waitUntilAnalyzed,
+    isLoading, isExcelLoading, fileError, fileName, isCalculating, totalProcessedRecords, loadingStep, setSales, addSales, refreshSalesUI, setFilters, removeFilterValue, triggerAnalysis, waitUntilAnalyzed,
     setFileError(error: string | null) { fileError.value = error },
     setFileName(name: string | null) { fileName.value = name; totalProcessedRecords.value = 0; isExcelLoading.value = false }
   }

@@ -672,8 +672,6 @@ const onFileSelected = async (file: File) => {
   missingCols.value = []
   
   try {
-    let firstChunkProcessed = false
-    let lastTriggeredCount = 0
     await ExcelService.processFile(file, (chunk, total, step) => {
       if (step) {
         salesStore.loadingStep = step
@@ -681,20 +679,14 @@ const onFileSelected = async (file: File) => {
       }
       
       salesStore.addSales(chunk)
-      salesStore.totalProcessedRecords = total
       
-      // Disparar análisis inicial
-      if (!firstChunkProcessed) {
-        salesStore.isLoading = false 
-        salesStore.triggerAnalysis()
-        firstChunkProcessed = true
-        lastTriggeredCount = total
-      } 
-      // Disparar recálculos progresivos cada 20.000 registros nuevos (menos flood)
-      else if (total - lastTriggeredCount >= 20000) {
-        salesStore.triggerAnalysis()
-        lastTriggeredCount = total
-      }
+      // Con la nueva estrategia de carga masiva, chunk contendrá todos los registros al final
+      salesStore.totalProcessedRecords = total
+      salesStore.refreshSalesUI()
+      
+      // Disparar análisis
+      salesStore.isLoading = false 
+      salesStore.triggerAnalysis()
     })
     
     salesStore.isExcelLoading = false
@@ -814,7 +806,7 @@ const horizontalBarLayout = (title: string): Partial<Layout> => ({
   },
   yaxis: {
     gridcolor: isDark.value ? twColors['brand-gray'][700] : twColors['brand-gray'][100],
-    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][50] },
+    tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] },
     automargin: true
   },
   bargap: 0.1,

@@ -218,3 +218,74 @@ body {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* --- Estilos Premium para Toast (PrimeVue) --- */
+.p-toast {
+  max-width: 400px;
+  filter: drop-shadow(0 20px 25px rgba(0, 0, 0, 0.15));
+}
+
+.p-toast-message {
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.3s ease;
+}
+
+/* Variantes de éxito (Success) */
+.p-toast-message-success {
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.p-toast-message-success .p-toast-message-icon {
+  color: theme('colors.brighter-green') !important;
+}
+
+.p-toast-message-success .p-toast-summary {
+  color: theme('colors.primary-green') !important;
+  font-weight: 800 !important;
+}
+
+.p-toast-message-success .p-toast-detail {
+  color: theme('colors.gray-brand') !important;
+  font-weight: 500 !important;
+}
+
+/* Modo Oscuro - Toast */
+.app-dark .p-toast-message {
+  background: rgba(17, 24, 39, 0.7) !important; /* Base Gray 900 con opacidad */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.app-dark .p-toast-message-success {
+  background: rgba(6, 78, 59, 0.6) !important; /* Verde muy oscuro translúcido */
+  border-left: 6px solid theme('colors.brighter-green') !important;
+}
+
+.app-dark .p-toast-message-success .p-toast-message-icon {
+  color: theme('colors.brighter-green') !important;
+  text-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+}
+
+.app-dark .p-toast-message-success .p-toast-summary {
+  color: white !important;
+}
+
+.app-dark .p-toast-message-success .p-toast-detail {
+  color: theme('colors.brand-gray.100') !important;
+  opacity: 0.9;
+}
+
+/* Animaciones suaves para el Toast */
+.p-toast-message-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+
+.p-toast-message-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
