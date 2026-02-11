@@ -22,11 +22,21 @@
     </div>
 
     <div v-if="salesStore.rawSales.length > 0" class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm mb-8 border border-gray-100 dark:border-gray-800 transition-colors duration-300 relative">
-      <!-- Overlay sutil cuando está recalculando -->
-      <div v-if="salesStore.isCalculating" class="absolute inset-0 bg-white/10 dark:bg-black/10 backdrop-blur-[1px] z-10 rounded-2xl flex items-start justify-center pt-2 transition-all cursor-wait">
-        <span class="bg-primary-green text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg animate-bounce mt-2 uppercase tracking-widest">
-          Recalculando...
-        </span>
+      <div v-if="salesStore.isCalculating || salesStore.isExcelLoading" class="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[2px] z-10 rounded-2xl flex flex-col items-center justify-center p-4 transition-all cursor-wait shadow-inner">
+        <div class="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-primary-green/20 flex flex-col items-center gap-4 animate-fadein max-w-md w-full">
+          <div class="relative w-16 h-16">
+            <div class="absolute inset-0 border-4 border-primary-green/10 rounded-full"></div>
+            <div class="absolute inset-0 border-4 border-primary-green border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div class="flex flex-col items-center text-center">
+            <span class="text-primary-green text-sm font-black uppercase tracking-widest mb-1">
+              {{ salesStore.isCalculating ? (salesStore.isExcelLoading ? salesStore.loadingStep : 'Analizando datos...') : salesStore.loadingStep }}
+            </span>
+            <span v-if="salesStore.totalProcessedRecords > 0" class="text-xs font-bold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/50 px-3 py-1 rounded-full shadow-sm mt-2">
+              {{ formatNum(salesStore.totalProcessedRecords) }} registros cargados
+            </span>
+          </div>
+        </div>
       </div>
       <div class="flex flex-col md:flex-row gap-4 items-end">
         <div class="flex-1">
@@ -223,7 +233,7 @@
 
     <div v-if="salesStore.isLoading" class="flex flex-col items-center justify-center p-20">
       <ProgressSpinner />
-      <p class="mt-4 text-primary-green font-bold">Procesando datos...</p>
+      <p class="mt-4 text-primary-green font-bold">{{ salesStore.loadingStep }}</p>
     </div>
 
     <div v-else-if="salesStore.rawSales.length > 0">
@@ -653,6 +663,8 @@ const setRange = (type: 'thisMonth' | 'lastMonth' | 'lastQuarter' | 'thisYear' |
 
 const onFileSelected = async (file: File) => {
   salesStore.isLoading = true
+  salesStore.isExcelLoading = true
+  salesStore.loadingStep = 'Cargando archivo...'
   salesStore.setFileError(null)
   salesStore.setFileName(file.name)
   salesStore.setSales([]) // Limpiar datos previos inmediatamente
@@ -660,15 +672,43 @@ const onFileSelected = async (file: File) => {
   missingCols.value = []
   
   try {
-    const sales = await ExcelService.processFile(file)
-    salesStore.setSales(sales)
-    salesStore.triggerAnalysis() // Disparar análisis inicial
+    let firstChunkProcessed = false
+    let lastTriggeredCount = 0
+    await ExcelService.processFile(file, (chunk, total, step) => {
+      if (step) {
+        salesStore.loadingStep = step
+        return
+      }
+      
+      salesStore.addSales(chunk)
+      salesStore.totalProcessedRecords = total
+      
+      // Disparar análisis inicial
+      if (!firstChunkProcessed) {
+        salesStore.isLoading = false 
+        salesStore.triggerAnalysis()
+        firstChunkProcessed = true
+        lastTriggeredCount = total
+      } 
+      // Disparar recálculos progresivos cada 20.000 registros nuevos (menos flood)
+      else if (total - lastTriggeredCount >= 20000) {
+        salesStore.triggerAnalysis()
+        lastTriggeredCount = total
+      }
+    })
+    
+    salesStore.isExcelLoading = false
+    
+    // Esperar a que el análisis final termine
+    salesStore.triggerAnalysis() 
+    await salesStore.waitUntilAnalyzed()
+    
     toast.add({ 
       severity: 'success', 
-      summary: 'Éxito', 
-      detail: `Se han cargado ${sales.length} registros correctamente`, 
-      life: 3000 
-    });
+      summary: 'Carga Completada', 
+      detail: `Se han procesado ${salesStore.totalProcessedRecords} registros correctamente.`, 
+      life: 5000 
+    })
   } catch (error: any) {
     console.error(error)
     if (error.type === 'INVALID_HEADER') {
@@ -684,6 +724,7 @@ const onFileSelected = async (file: File) => {
     }
   } finally {
     salesStore.isLoading = false
+    salesStore.isExcelLoading = false
   }
 }
 

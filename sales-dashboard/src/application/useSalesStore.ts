@@ -1,15 +1,17 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw, shallowRef } from 'vue'
 import type { Sale, SalesFilters } from '../core/entities/Sale'
 // @ts-ignore
 import tailwindConfig from '../../tailwind.config.js'
 
 export const useSalesStore = defineStore('sales', () => {
   const twColors = (tailwindConfig as any).theme.extend.colors;
-  const rawSales = ref<Sale[]>([])
+  const rawSales = shallowRef<Sale[]>([]) // shallowRef para evitar el overhead de reactividad en miles de objetos
   const isLoading = ref(false)
   const fileError = ref<string | null>(null)
   const fileName = ref<string | null>(null)
+  const totalProcessedRecords = ref(0)
+  const loadingStep = ref('Procesando datos...')
   
   const filters = ref<SalesFilters>({
     startDate: null,
@@ -41,7 +43,10 @@ export const useSalesStore = defineStore('sales', () => {
     filteredCount: 0
   })
 
+  const isExcelLoading = ref(false)
   const isCalculating = ref(false)
+  const lastAnalysisId = ref(0)
+  const lastFinishedAnalysisId = ref(0)
   let analyticsWorker: Worker | null = null
 
   const initWorker = () => {
@@ -53,22 +58,64 @@ export const useSalesStore = defineStore('sales', () => {
       } else {
         console.log("Analysis Worker Success:", e.data.filteredCount, "records processed")
         workerResults.value = e.data
+        if (e.data.filterOptions) {
+          filterOptions.value = e.data.filterOptions
+        }
       }
+      
+      const finishedId = e.data.requestId
+      if (finishedId !== undefined) {
+        lastFinishedAnalysisId.value = finishedId
+      }
+      
       isCalculating.value = false
+      
+      // Notificar a todos los que esperan si el análisis actual o posterior ha terminado
+      checkPendingResolvers()
     }
     analyticsWorker.onerror = (err) => {
       console.error("Analysis Worker Critical Error:", err)
       isCalculating.value = false
+      checkPendingResolvers()
     }
+  }
+
+  interface AnalysisResolver {
+    id: number
+    resolve: () => void
+  }
+  let pendingResolvers: AnalysisResolver[] = []
+
+  const checkPendingResolvers = () => {
+    pendingResolvers = pendingResolvers.filter(r => {
+      if (r.id <= lastFinishedAnalysisId.value) {
+        r.resolve()
+        return false
+      }
+      return true
+    })
+  }
+
+  const waitUntilAnalyzed = (targetId?: number) => {
+    const idToWait = targetId ?? lastAnalysisId.value
+    if (idToWait <= lastFinishedAnalysisId.value) return Promise.resolve()
+    
+    return new Promise<void>((resolve) => {
+      pendingResolvers.push({ id: idToWait, resolve })
+    })
   }
 
   const runAnalysis = () => {
     if (!rawSales.value.length) return
     initWorker()
     isCalculating.value = true
+    loadingStep.value = 'Actualizando indicadores y gráficos...'
+    lastAnalysisId.value++
+    
     analyticsWorker?.postMessage({
-      sales: JSON.parse(JSON.stringify(rawSales.value)), // Clonación profunda para el worker
-      filters: JSON.parse(JSON.stringify(filters.value))
+      sales: toRaw(rawSales.value),
+      filters: toRaw(filters.value),
+      requestId: lastAnalysisId.value
     })
   }
 
@@ -78,33 +125,22 @@ export const useSalesStore = defineStore('sales', () => {
     runAnalysis()
   }
 
-  // --- Opciones para Filtros (Valores únicos) ---
-  // Mantenemos esto como computed porque depende solo de rawSales (cambia poco)
-  const filterOptions = computed(() => {
-    const fabricas = new Set<string>()
-    const comunidades = new Set<string>()
-    const nomenclaturas = new Set<string>()
-    const transportistas = new Set<string>()
-    const matriculas = new Set<string>()
-    const clientes = new Map<string, string>()
-
-    rawSales.value.forEach(s => {
-      fabricas.add(s.planta)
-      comunidades.add(s.comunidad)
-      nomenclaturas.add(s.nomenclatura)
-      transportistas.add(s.nombreTransportista)
-      matriculas.add(s.matricula)
-      clientes.set(s.cliente, s.nombreCliente)
-    })
-
-    return {
-      fabricas: Array.from(fabricas).sort(),
-      comunidades: Array.from(comunidades).sort(),
-      nomenclaturas: Array.from(nomenclaturas).sort(),
-      transportistas: Array.from(transportistas).sort(),
-      matriculas: Array.from(matriculas).sort(),
-      clientes: Array.from(clientes.entries()).map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label))
-    }
+  // Opciones para Filtros (Valores únicos)
+  // Ahora se calculan en el worker para no bloquear el hilo principal
+  const filterOptions = ref<{
+    fabricas: string[],
+    comunidades: string[],
+    nomenclaturas: string[],
+    transportistas: string[],
+    matriculas: string[],
+    clientes: { label: string, value: string }[]
+  }>({
+    fabricas: [],
+    comunidades: [],
+    nomenclaturas: [],
+    transportistas: [],
+    matriculas: [],
+    clientes: []
   })
 
   // Exponer propiedades individuales desde workerResults para compatibilidad
@@ -372,6 +408,10 @@ export const useSalesStore = defineStore('sales', () => {
     rawSales.value = sales
   }
 
+  function addSales(chunk: Sale[]) {
+    rawSales.value = [...rawSales.value, ...chunk]
+  }
+
   function setFilters(newFilters: Partial<SalesFilters>) {
     filters.value = { ...filters.value, ...newFilters }
   }
@@ -392,8 +432,8 @@ export const useSalesStore = defineStore('sales', () => {
     customerLoyaltyData, plantPerformanceData, technicalKPIs, pivotData, filterOptions,
     technicalKPIsByPlant, technicalHeatmapData, filteredSales, volumeVariation,
     top3ClientsInfo, top10ClientsInfo,
-    isLoading, fileError, fileName, isCalculating, setSales, setFilters, removeFilterValue, triggerAnalysis,
+    isLoading, isExcelLoading, fileError, fileName, isCalculating, totalProcessedRecords, loadingStep, setSales, addSales, setFilters, removeFilterValue, triggerAnalysis, waitUntilAnalyzed,
     setFileError(error: string | null) { fileError.value = error },
-    setFileName(name: string | null) { fileName.value = name }
+    setFileName(name: string | null) { fileName.value = name; totalProcessedRecords.value = 0; isExcelLoading.value = false }
   }
 })

@@ -4,10 +4,11 @@ import type { Sale, SalesFilters } from '../../core/entities/Sale'
 interface WorkerInput {
   sales: Sale[]
   filters: SalesFilters
+  requestId?: number
 }
 
 self.onmessage = (event: MessageEvent<WorkerInput>) => {
-  const { sales, filters } = event.data
+  const { sales, filters, requestId } = event.data
   
   // 1. Filtrado
   const filtered = sales.filter(sale => {
@@ -146,8 +147,36 @@ self.onmessage = (event: MessageEvent<WorkerInput>) => {
     maxDayLabel = { date: `${d}/${m}/${y}`, value: maxDayValue }
   }
 
+  // Opciones para Filtros (Valores únicos recogidos de rawSales - o sea de 'sales' de entrada)
+  const fFabricas = new Set<string>()
+  const fComunidades = new Set<string>()
+  const fNomenclaturas = new Set<string>()
+  const fTransportistas = new Set<string>()
+  const fMatriculas = new Set<string>()
+  const fClientes = new Map<string, string>()
+
+  sales.forEach(s => {
+    fFabricas.add(s.planta)
+    fComunidades.add(s.comunidad)
+    fNomenclaturas.add(s.nomenclatura)
+    fTransportistas.add(s.nombreTransportista)
+    fMatriculas.add(s.matricula)
+    fClientes.set(s.cliente, s.nombreCliente)
+  })
+
+  const filterOptions = {
+    fabricas: Array.from(fFabricas).sort(),
+    comunidades: Array.from(fComunidades).sort(),
+    nomenclaturas: Array.from(fNomenclaturas).sort(),
+    transportistas: Array.from(fTransportistas).sort(),
+    matriculas: Array.from(fMatriculas).sort(),
+    clientes: Array.from(fClientes.entries()).map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label))
+  }
+
   try {
     self.postMessage({
+      requestId,
+      filterOptions,
       totalVolume: totalVol,
       volumeByPlanta: byPlanta,
       volumeByCommunity: byCommunity,
