@@ -2,7 +2,7 @@
   <div class="p-6 max-w-[1600px] mx-auto">
     <header class="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-md mb-8 border-t-4 border-primary-green flex justify-between items-center transition-colors duration-300">
       <div class="flex-1 text-center">
-        <h1 class="text-3xl font-black text-gray-800 dark:text-gray-100">Panel de Análisis de Ventas de Hormigón</h1>
+        <h1 class="text-3xl font-black text-gray-800 dark:text-gray-100 leading-tight">Panel de Análisis de Ventas de Hormigón</h1>
         <p class="text-gray-500 dark:text-gray-400 mt-2 font-medium italic">Inteligencia de Negocio y Control de Gestión Operativa</p>
       </div>
       <Button 
@@ -449,7 +449,7 @@
 
               <div class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 transition-colors duration-300">
                 <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4">Matriz de Fidelización (Frecuencia vs Volumen)</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Clasificación por hábito de compra. El tamaño de la burbuja es el promedio m³/pedido.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Análisis de los 10 clientes con mayor volumen. El tamaño de la burbuja representa el promedio de m³ por pedido.</p>
                 <div class="h-[500px]">
                   <BasePlotly :data="(bubbleChartData as any)" :layout="(bubbleLayout as any)" />
                 </div>
@@ -985,7 +985,10 @@ const concentrationLayout = computed(() => ({
 }));
 
 const bubbleChartData = computed(() => {
-  const data = salesStore.customerLoyaltyData;
+  const data = [...salesStore.customerLoyaltyData]
+    .sort((a, b) => b.volume - a.volume)
+    .slice(0, 10);
+    
   return [
     {
       x: data.map(d => d.frequency),
@@ -995,7 +998,7 @@ const bubbleChartData = computed(() => {
       marker: {
         size: data.map(d => d.average),
         sizemode: 'area',
-        sizeref: 2.0 * Math.max(...data.map(d => d.average)) / (40 ** 2),
+        sizeref: data.length > 0 ? 2.0 * Math.max(...data.map(d => d.average)) / (40 ** 2) : 1,
         sizemin: 4,
         color: data.map(d => d.volume),
         colorscale: 'Greens',
