@@ -1005,7 +1005,7 @@ const bubbleChartData = computed(() => {
         showscale: true,
         reversescale: true,
         opacity: 0.7,
-        line: { width: 1, color: twColors['brand-gray'][0] }
+        line: { width: 1.5, color: '#000000' }
       }
     }
   ];
@@ -1081,7 +1081,7 @@ const technicalBubbleChartData = computed(() => {
         showscale: true,
         reversescale: true,
         opacity: 0.7,
-        line: { width: 1, color: twColors['brand-gray'][0] }
+        line: { width: 1.5, color: '#000000' }
       }
     }
   ];
