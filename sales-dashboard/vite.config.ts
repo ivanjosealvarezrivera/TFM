@@ -9,5 +9,16 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-plotly': ['plotly.js-dist-min'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-primevue': ['primevue', '@primevue/themes']
+        }
+      }
+    }
   }
 })
