@@ -118,29 +118,18 @@ export class SalesMapper {
         ? horaFinDescarga > horaLimiteUso
         : null;
 
-    const expoParts = [
-        row['Exposición General Fórmula'],
-        row['Exposición Especifica 1 Fórmula'],
-        row['Exposición Especifica 2 Fórmula'],
-        row['Exposición Especifica 3 Fórmula']
-    ].filter(Boolean);
-
     return {
       id: `${planta}|${row['Número albarán']}`,
       planta,
       comunidad: (planta.length >= 2) ? planta.substring(0, 2).toUpperCase() : 'OT',
       grupo: `${cabeceraNomenclaturaReducidaRaw || ''}-${resistenciaFormula}`,
       nomenclatura: `${cabeceraNomenclaturaReducidaRaw || ''}-${resistenciaFormula}`,
-      articulo: row['Tamaño Fórmula'] || '',
-      calidad: row['Consistencia Fórmula'] || '',
-      envase: expoParts.join('+'),
       cliente: row['NIF Cliente'] || '',
       nombreCliente: row['Nombre cliente'] || '',
       matricula: this.cleanLicensePlate(row['Matricula Camión'] || ''),
       nombreTransportista: row['Nombre Transportista'] || '',
       fecha: fecha.toISOString().split('T')[0] || '',
       cantidad: this.parseExcelNumber(row['Volumen Facturar Albarán']),
-      relacionACReal: this.parseExcelNumber(row['Relación A/C Real Fórmula']),
       contenidoCementoReal: this.parseExcelNumber(row['Contenido Cemento Real Fórmula']),
       tiempoViaje,
       tiempoDescarga,
