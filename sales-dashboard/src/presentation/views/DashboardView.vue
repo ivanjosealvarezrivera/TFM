@@ -1145,7 +1145,7 @@ const heatmapLayout = computed(() => ({
     tickfont: { color: isDark.value ? twColors['brand-gray'][400] : twColors['brand-gray'][500] }
   },
   paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: '#000000',
   font: { 
     family: 'Outfit, sans-serif',
     color: isDark.value ? twColors['brand-gray'][50] : twColors['brand-gray'][700]
