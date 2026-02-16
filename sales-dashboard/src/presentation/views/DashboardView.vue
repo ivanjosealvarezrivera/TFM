@@ -956,7 +956,8 @@ const concentrationChartData = computed(() => {
       type: 'pie',
       hole: 0.5,
       marker: {
-        colors: [twColors['primary-green'], twColors['medium-dark-green']]
+        colors: [twColors['primary-green'], twColors['medium-dark-green']],
+        line: { width: 1.5, color: '#000000' }
       },
       textinfo: 'label+percent',
       hoverinfo: 'label+value+percent',
@@ -1049,6 +1050,8 @@ const heatmapChartData = computed(() => {
       y: data.y,
       z: data.z,
       type: 'heatmap',
+      xgap: 1.5,
+      ygap: 1.5,
       colorscale: 'Greens',
       reversescale: true,
       showscale: true,

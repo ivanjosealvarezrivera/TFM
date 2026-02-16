@@ -114,7 +114,7 @@ export const useSalesStore = defineStore('sales', () => {
     
     analyticsWorker?.postMessage({
       sales: toRaw(rawSales.value),
-      filters: toRaw(filters.value),
+      filters: JSON.parse(JSON.stringify(filters.value)),
       requestId: lastAnalysisId.value
     })
   }
@@ -206,7 +206,7 @@ export const useSalesStore = defineStore('sales', () => {
       values,
       text,
       textinfo: "label+text",
-      marker: { colorscale: 'Greens', reversescale: true },
+      marker: { colorscale: 'Greens', reversescale: true, line: { width: 1.5, color: '#000000' } },
       hoverinfo: "label+value+percent parent"
     }]
   })
@@ -286,7 +286,7 @@ export const useSalesStore = defineStore('sales', () => {
       textinfo: "label+text",
       hoverinfo: "label+value+percent parent",
       branchvalues: "total",
-      marker: { colorscale: 'Greens', reversescale: true, line: { width: 2, color: twColors['brand-gray'][0] } }
+      marker: { colorscale: 'Greens', reversescale: true, line: { width: 1.5, color: '#000000' } }
     }]
   })
 
@@ -399,7 +399,7 @@ export const useSalesStore = defineStore('sales', () => {
     const data = volumeByCommunity.value
     return [{
       type: 'pie', labels: Object.keys(data), values: Object.values(data), hole: 0.4,
-      marker: { colors: twColors['chart-greens'], line: { width: 2, color: twColors['brand-gray'][0] } },
+      marker: { colors: twColors['chart-greens'], line: { width: 1.5, color: '#000000' } },
       textinfo: 'label+percent', hovertemplate: '<b>%{label}</b><br>Volumen: %{value:,.0f} m³<br>%{percent}<extra></extra>'
     }]
   })
