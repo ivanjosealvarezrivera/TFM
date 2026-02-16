@@ -68,6 +68,25 @@ src/
 └── main.ts             # Punto de entrada de la aplicación
 ```
 
+Aquí te detallo cómo se cumple cada capa:
+
+1. **Capa de Núcleo (Core / Domain)**
+Ubicación: src/core/entities
+Qué hace: Contiene la definición de Sale.ts. Esta es la "verdad" del negocio. Son objetos puros de TypeScript que no dependen de Vue, ni de Excel, ni de ninguna librería externa. Si cambiaras de framework (ej. a React), esta carpeta se quedaría exactamente igual.
+
+2. **Capa de Aplicación (Application)**
+Ubicación: src/application/useSalesStore.ts
+Qué hace: Aquí reside la lógica de negocio "viva". Es donde se calculan los KPIs, se filtran las ventas y se preparan los datos para los gráficos. La lógica de "cómo se calcula el volumen total" o "qué es un autoconsumo" está aquí, aislada de la interfaz.
+
+3. **Capa de Infraestructura (Infrastructure)**
+Ubicación: src/infrastructure
+Qué hace: Es el "traductor" con el mundo exterior. Aquí está la lógica para leer archivos Excel (.xlsx). El resto de la aplicación no sabe que los datos vienen de un Excel; solo reciben una lista de entidades Sale. Si mañana los datos vienen de una base de datos SQL, solo tendríamos que modificar esta capa.
+
+4. **Capa de Presentación (Presentation)**
+Ubicación: src/presentation (views, components)
+Qué hace: Es la cáscara visual. Solo se encarga de pintar botones, tablas y gráficos. Los componentes como KPICard.vue o BaseChartJS.vue son tontos: solo reciben datos y los muestran. No saben cómo se calculan esos datos ni de dónde vienen.
+
+
 ## ✨ Funcionalidades Principales
 
 - **Análisis de KPIs**: Visualización instantánea de volumen total, número de plantas activas y cobertura de comunidades autónomas.
